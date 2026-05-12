@@ -1,0 +1,79 @@
+﻿@page "/tickers"
+@using Credo.Models
+@using Microsoft.AspNetCore.Components.QuickGrid
+@using System.Globalization
+
+<h4 class="text-center">Tickers</h4>
+
+<div style="width:fit-content;max-width:100%; margin:0 auto;">
+    @if (Ticks == null)
+    {
+        <p><em>Loading...</em></p>
+    }
+    else
+    {
+        <div class="scroll-table">
+            <table id="members">
+                <thead>
+                    <tr>
+                        <th @onclick="@(() => SortData("TranCode"))" style="cursor:pointer">Symbol @if (sortColumn == "TranCode") {
+                            <span>@(sortAscending ? "▲" : "▼")</span>
+                        }
+                    </th>
+                    <th @onclick="@(() => SortData("Name"))" style="cursor:pointer">Security @if (sortColumn == "Name") {
+                        <span>@(sortAscending ? "▲" : "▼")</span>
+                    }
+                </th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var t in Ticks)
+        {
+            <tr>
+                <td>@t.Symbol</td>
+                <td>@t.Name</td>
+            </tr>
+        }
+    </tbody>
+</table>
+</div>
+      
+    }
+</div>
+
+
+@code {
+    [Inject] Repo repo { get; set; } = default!;
+    IList<Ticker>? Ticks{ get; set; }
+    private string sortColumn = "Security";
+    private bool sortAscending = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Ticks = await repo.GetEntitiesNTAsync<Ticker>(null);
+    }
+    private void SortData(string? column = null)
+    {
+        if (Ticks is null) return;
+        if (column != null)
+        {
+            if (sortColumn == column)
+                sortAscending = !sortAscending;
+            else
+            {
+                sortColumn = column;
+                sortAscending = true;
+            }
+        }
+        Ticks = sortColumn switch
+        {
+            "TranCode" => sortAscending?  Ticks.OrderBy(t => t.Symbol).ToList()
+                : Ticks.OrderByDescending(t => t.Symbol).ToList(),
+            "Name" => sortAscending
+                ? Ticks.OrderBy(t => t.Name).ToList()
+                : Ticks.OrderByDescending(t => t.Name).ToList(),
+            _ => Ticks
+        };
+    }
+
+}

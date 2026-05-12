@@ -1,0 +1,157 @@
+﻿@page "/securities"
+@using Credo.Models
+@using Microsoft.AspNetCore.Components.QuickGrid
+@using System.Globalization
+
+
+<div class="d-flex justify-content-center align-items-center gap-2">
+    <h4 class="text-center m-0">Securties</h4>
+    <button class="btn btn-sm btn-primary"
+            @onclick="RecomputeGainsAsync"
+            title="Recompute and persist Gain $ for all securities">
+        Gains
+    </button>
+</div>
+<div style="width:fit-content;max-width:100%; margin:0 auto;">
+    @if (Securities == null)
+    {
+        <p><em>Loading...</em></p>
+    }
+    else
+    {
+        <div class="scroll-table" @oncontextmenu:preventDefault @oncontextmenu="ContextMenuShow">
+            <table id="members">
+                <thead>
+                    <tr>
+                        <th title="Ticker">Symbol</th>
+                        <th title="Exchage were stock is listed">Exchange</th>
+                        <th @onclick="@(() => SortData("Security"))" style="cursor:pointer">
+                            Security @if (sortColumn == "Security") {
+                            <span>@(sortAscending ? "▲" : "▼")</span>
+                        }
+                    </th>
+                    <th>Curr</th>
+                    <th title="Red if Price < Fifty day moving average; Green if Price > 50DMA">50DMA</th>
+                    <th>Price</th>
+                    <th @onclick="@(() => SortData("Change"))" style="cursor:pointer" title="Change from Last Close">
+                        Change @if (sortColumn == "Change") {
+                        <span>@(sortAscending ? "▲" : "▼")</span>
+                    }
+                </th>
+                <th @onclick="@(() => SortData("PE"))" style="cursor:pointer" title="Price/Earnings per share (Trailing)">
+                    PE @if (sortColumn == "PE") {
+                    <span>@(sortAscending ? "▲" : "▼")</span>
+                }
+            </th>
+            <th title="Price/Earnings per share (Forwarded Guessed)">PEf</th>
+            <th @onclick="@(() => SortData("Gain"))" style="cursor:pointer" title="Sum of Transactions; if long then current value included">
+                Gain$  @if (sortColumn == "Gain") {
+                <span>@(sortAscending ? "▲" : "▼")</span>
+            }
+        </th>
+        <th @onclick="@(() => SortData("GainPerc"))" style="cursor:pointer" title="Gain $ as a percentage of total cost basis (sum of buy amounts)">
+            Gain% @if (sortColumn == "GainPerc") {
+                <span>@(sortAscending ? "▲" : "▼")</span>
+            }
+        </th>
+        <th @onclick="@(() => SortData("XIRR"))" style="cursor:pointer" title="Annualized Investment Return after Cost of Money was taken in consideration and NPV=0; Includes Dividends and Interest. Green if better S&P500 else Red; Nothing if < 1 year">
+            XIRR @if (sortColumn == "XIRR") {
+            <span>@(sortAscending ? "▲" : "▼")</span>
+        }
+    </th>
+    <th title="S&P 500 annualized return (SPY CAGR) since first buy date — benchmark for XIRR">SP500</th>
+<th title="Annualized Return after Cost of Money was taken in consideration and NPV=0. Includes Dividends and Interest; No Selling of Shares Considered; Nothing if < 1 year">XIRRNS</th>
+</tr>
+</thead>
+<tbody>
+    @foreach (var s in Securities)
+    {
+        var hasPosition = s.Transactions.Where(t => t.TranCode == "by" || t.TranCode == "li").Sum(t => t.Quantity ?? 0) >
+                          s.Transactions.Where(t => t.TranCode == "sl" || t.TranCode == "lo").Sum(t => t.Quantity ?? 0);
+        var firstBuy = s.Transactions.Where(t => t.TranCode == "by" || t.TranCode == "li")
+                                     .Select(t => (DateOnly?)t.TradeDate).Min();
+        var heldOneYear = firstBuy.HasValue &&
+                          (DateOnly.FromDateTime(DateTime.Today).DayNumber - firstBuy.Value.DayNumber) >= 365;
+        <tr>
+            <td>
+                <button class="chart-btn" title="Show chart"
+                        @onclick="@(() => ShowChartAsync(s))"
+                        @onclick:stopPropagation>📈</button>
+                @s.ticker?.Symbol
+            </td>
+            <td>@s.Exchange</td>
+            <td @onclick="((e) => SecurityClicked(e, s))" class="@(s.Selected ? "bg-primary" : hasPosition ? "text-primary" : "")" style="cursor: pointer; user-select: none;">@s.ticker?.Name</td>
+            <td class="@(s.Selected ? "bg-primary" : "")">@s.Currency</td>
+            <td class="text-end @(s.Price >= s.FiftyDayAverage ? "text-success" : "text-danger")">@s.FiftyDayAverage</td>
+            <td class="text-end">
+                @{
+                    string priceFormatted = s.Currency switch
+                    {
+                        "USD=X" => string.Format(CultureInfo.GetCultureInfo("en-us"), "${0:N2}", s.Price),
+                        "GBP=X" => string.Format(CultureInfo.GetCultureInfo("en-uk"), "£{0:N2}", s.Price),
+                        "EUR=X" => string.Format(CultureInfo.GetCultureInfo("en-us"), "€{0:N2}", s.Price),
+                        "ZAR=X" => string.Format(CultureInfo.GetCultureInfo("en-us"), "R{0:N2}", s.Price),
+                        "DKK=X" => string.Format(CultureInfo.GetCultureInfo("en-uk"), "Kr.{0:N2}", s.Price),
+                        "CHF=X" => string.Format(CultureInfo.GetCultureInfo("en-uk"), "Fr.{0:N2}", s.Price),
+                        "TWD=X" => string.Format(CultureInfo.GetCultureInfo("en-uk"), "${0:N2}", s.Price),
+                        _ => $"{s.Currency} {s.Price:N2}"
+                    };
+                }
+                @priceFormatted
+            </td>
+            <td class="text-end">
+                <div class="@(s.ChangePercent >= 0 ? "text-success" : "text-danger")"> @s.ChangePercent%</div>
+            </td>
+            <td class="text-end">@s.PE</td>
+            <td class="text-end">@s.PEf</td>
+            <td class="text-end @(s.Gain > 0 ? "text-success" : "text-danger")">@string.Format(CultureInfo.InvariantCulture, "{0:N2}", s.Gain)</td>
+            <td class="text-end"><div class="@(s.GainPerc.HasValue ? (s.GainPerc >= 0 ? "text-success" : "text-danger") : "")">@(s.GainPerc.HasValue ? $"{s.GainPerc}%" : "-")</div></td>
+            <td class="text-end">
+                @if (heldOneYear)
+                {
+                    <div class="@(s.XIRR >= s.SpyPerf ? "text-success" : "text-danger")">@s.XIRR%</div>
+                }
+                else
+                {
+                    <div>-</div>
+                }
+            </td>
+            <td class="text-end"><div>@(s.SpyPerf.HasValue ? $"{s.SpyPerf}%" : "-")</div></td>
+            <td class="text-end">
+                @if (heldOneYear)
+                {
+                    <div class="@(s.XIRRNeverSold >= 0 ? "text-success" : "text-danger")">@s.XIRRNeverSold%</div>
+                }
+                else
+                {
+                    <div>-</div>
+                }
+            </td>
+        </tr>
+    }
+</tbody>
+</table>
+</div>
+    }
+</div>
+
+@if (IsVisibleTransView)
+{
+    <TransViewMod Transactions="Transactions" OnClose="Close" Title="@Title" />
+}
+
+@if (showChart && securityChart is not null)
+{
+    <ChartModal Chart="securityChart" OnClose="CloseChart" Width="chartWidth" />
+}
+
+
+<div Id="Securities" class="context-menu" @onmouseleave="ContextMenuHide" style="display: none; position: absolute;">
+    <ul class="context-menu-list">
+        <li @onclick="InvestmentsList" title="Pos and Neg Investments to Downloads/Credo/.csv">
+            Investment List
+        </li>
+        
+    </ul>
+</div>
+

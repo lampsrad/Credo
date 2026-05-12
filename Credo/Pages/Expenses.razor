@@ -1,0 +1,75 @@
+@page "/expenses"
+@using Credo.Models
+
+<div style="display:flex; flex-direction:column; height:calc(100vh - 60px); padding:0 4px;">
+    <div class="d-flex justify-content-center align-items-center gap-3 mb-1">
+        <h4 class="mb-0">Expenses</h4>
+        <select style="background:#1a1d1f; color:antiquewhite; border:1px solid #355825; padding:1px 4px; font-size:13px;"
+                value="@selectedCode" @onchange="OnCodeFilter">
+            <option value="">All</option>
+            @foreach (var c in AvailableCodes)
+            {
+                <option value="@c">@c</option>
+            }
+        </select>
+    </div>
+
+    @if (Items == null)
+    {
+        <p><em>Loading...</em></p>
+    }
+    else
+    {
+
+        <div class="scroll-table" style="flex:1; max-height:none;">
+            <table id="members">
+                <thead>
+                    <tr>
+                        <th @onclick='() => SortData("TDate")' style="cursor:pointer">
+                            Date @if (sortColumn == "TDate") { <span>@(sortAscending ? "▲" : "▼")</span> }
+                        </th>
+                        <th>Code</th>
+                        <th @onclick='() => SortData("Security")' style="cursor:pointer">
+                            Description @if (sortColumn == "Security") { <span>@(sortAscending ? "▲" : "▼")</span> }
+                        </th>
+                        <th>Cur</th>
+                        <th>Loc Amount</th>
+                        <th>USD</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var t in Items)
+                    {
+                        <tr>
+                            <td class="text-end">@t.TradeDate</td>
+                            <td class="text-center">@t.TranCode</td>
+                            <td>@t.Security</td>
+                            <td>@t.Currency</td>
+                            <td class="text-end">@(t.LocalAmount?.ToString("C", CultureFor(t.Currency)))</td>
+                            <td class="text-end">@(t.LocalAmount.HasValue ? ToUsd(t.Currency, t.LocalAmount.Value).ToString("C", new CultureInfo("en-US")) : "")</td>
+                        </tr>
+                    }
+                    @foreach (var yr in Items.GroupBy(t => t.TradeDate.Year).OrderBy(g => g.Key))
+                    {
+                        <tr style="background:#2a3530; color:#fff5d6; font-weight:bold;">
+                            <td></td>
+                            <td></td>
+                            <td>@yr.Key Total</td>
+                            <td></td>
+                            <td class="text-end">@YearLocTotal(yr).ToString("C", new CultureInfo("en-GB"))</td>
+                            <td class="text-end">@(yr.Sum(t => t.LocalAmount.HasValue ? ToUsd(t.Currency, t.LocalAmount.Value) : 0).ToString("C", new CultureInfo("en-US")))</td>
+                        </tr>
+                    }
+                    <tr style="background:#1a2a20; color:#fff5d6; font-weight:bold; border-top:2px solid #4a7a35;">
+                        <td></td>
+                        <td></td>
+                        <td>TOTAL</td>
+                        <td></td>
+                        <td class="text-end">@Total.ToString("C", new CultureInfo("en-GB"))</td>
+                        <td class="text-end">@(Items.Sum(t => t.LocalAmount.HasValue ? ToUsd(t.Currency, t.LocalAmount.Value) : 0).ToString("C", new CultureInfo("en-US")))</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    }
+</div>

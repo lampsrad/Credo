@@ -1,0 +1,74 @@
+﻿@using Credo.Models
+@using System.Globalization
+
+<div class="mouse-modal"
+     style="position: fixed;
+    left: 10px;
+    top: 10px;
+    z-index: 1060;
+    border: 1px solid #ccc;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+    border-radius: 6px;
+    min-width: 420px;
+    max-width: 90vw;
+    overflow: hidden;">
+    <div class="modal-body p-3" @onclick="Close">
+        @if (Transactions == null)
+        {
+            <p><em>Loading...</em></p>
+        }
+        else
+        {
+            <h5 class="text-center">@Title</h5>
+            <table id="mod">
+                <thead>
+                    <tr>
+                        <th>Quant</th>
+                        <th>TCode</th>
+                        <th>TDate</th>
+                        <th>Curency</th>
+                        <th title="Local Amount">L-Amount</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var transaction in Transactions)
+                    {
+                        <tr>
+                            <td class="text-end">@transaction.Quantity</td>
+                            <td class="text-center">@transaction.TranCode</td>
+                            <td class="text-end">@transaction.TradeDate</td>
+                            <td class="text-center">@transaction.Currency</td>
+                            <td class="text-end @(transaction.LocalAmount<0? "text-danger fw-bold":null)">
+                                @{
+                                    string priceFormatted = transaction.Currency switch
+                                    {
+                                        "USD" => string.Format(CultureInfo.GetCultureInfo("en-us"), "${0:N2}", transaction.LocalAmount),
+                                        "EUR" => string.Format(CultureInfo.GetCultureInfo("en-us"), "€{0:N2}", transaction.LocalAmount),
+                                        "ZAR" => string.Format(CultureInfo.GetCultureInfo("en-za"), "R{0:N2}", transaction.LocalAmount),
+                                        "GBP" => string.Format(CultureInfo.GetCultureInfo("en-us"), "£{0:N2}", transaction.LocalAmount),
+                                        _ => $"{transaction.LocalAmount:N2} {transaction.Currency}"
+                                    };
+                                }
+                                @priceFormatted
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter] public IList<Transaction>? Transactions { get; set; }
+    [Parameter] public string? Title { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+   
+
+    private async Task Close()
+    {
+        if (OnClose.HasDelegate)
+            await OnClose.InvokeAsync();
+    }
+
+}

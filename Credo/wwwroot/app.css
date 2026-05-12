@@ -1,0 +1,483 @@
+.col-name:hover {
+    background-color:darkblue;
+    color:yellow;
+}
+
+ .quickgrid thead th {
+    background-color: olive !important;
+    color: black !important;
+    padding:0;
+}
+
+.quickgrid[theme="default"] .sort-indicator {
+    filter: invert(1) !important;
+}
+
+    .quickgrid thead th .col-title-text {
+        color: black !important;
+    }
+
+    progress {
+        width: 200px;
+        background-color: gray;
+    }
+
+
+    .context-menu {
+        color: lawngreen;
+        background: #2a5786;
+        border: 1px solid #ccc;
+        box-shadow: 2px 2px 10px rgba(0,0,0,0.2);
+        z-index: 2000;
+        padding: 5px;
+    }
+
+        .context-menu ul {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+        }
+
+        .context-menu li {
+            padding: 2px 6px;
+            cursor: pointer;
+        }
+
+            .context-menu li:hover {
+                color: red;
+            }
+
+#members {
+    border-collapse: separate;
+    border-spacing: 0;
+    background-color: #1a1d1f;
+    color: antiquewhite;
+    margin: 0;
+    font-family: Arial;
+    font-size: 13px;
+}
+
+        #members tbody tr:nth-child(odd) {
+            background-color: #31363b;
+        }
+
+        #members th, #members td {
+            border: 1px solid;
+            border-color: #355825;
+            vertical-align: bottom;
+            padding: 0px 4px 0px 4px;
+        }
+
+        #members thead {
+            background-color: darkolivegreen;
+            color: black;
+            text-align: center;
+            font-size: 14px;
+            text-transform: uppercase;
+            position:sticky;
+            top:0;
+            z-index:10;
+        }
+
+        #members th {
+            text-align: center;
+        }
+
+        #members tbody tr:hover {
+            background-color: #0a417a;
+        }
+
+        #members tbody tr:nth-child(odd):hover {
+            background-color: #0a4171;
+        }
+
+        .mouse-modal{
+            background-color:black;
+        }
+
+#mod {
+    background-color:#b18b5b;
+    color: black;
+    margin: 0;
+    font-family: Arial;
+    font-size: 12px;
+}
+
+    #mod tbody tr:nth-child(odd) {
+        background-color: #6cb5c9;
+    }
+
+    #mod th, #members td {
+        border: 1px solid;
+        border-collapse: collapse;
+        border-color: #355825;
+        vertical-align: bottom;
+        padding: 3px 3px 0px 3px;
+    }
+
+    #mod thead {
+        background-color: indianred;
+        color: black;
+        text-align: center;
+        font-size: 12px;
+        text-transform: uppercase;
+        position: sticky;
+        top: 0;
+        z-index: 10;
+    }
+
+    #mod th {
+        text-align: center;
+    }
+
+    #mod tbody tr:hover {
+        background-color: #1745b0;
+        color:white;
+    }
+
+    #mod tbody tr:nth-child(odd):hover {
+        background-color: #1745b0;
+    }
+
+.scroll-table {
+    margin: 0 auto;
+    width: fit-content;
+    max-height: 90vh;
+    margin-right: auto;
+    overflow-y: auto;
+    overflow-x: auto;
+    border: 1px solid #355825;
+    scrollbar-color: #666 #333;
+}
+
+    .col-title {
+        color: black;
+        font-weight: bold;
+        text-transform: uppercase;
+        background-color: transparent;
+        gap: 1px;
+    }
+
+    .sort-col {
+    }
+
+    .sort-indicator {
+        background-image: url('icons/sort-indicator.svg');
+        margin-inline: 2px 2px;
+        visibility: hidden;
+    }
+
+    th .sort-indicator {
+        width: 1rem;
+        height: 1rem;
+        align-self: center;
+        text-align: center;
+    }
+
+
+    html, body {
+        font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+        background-color: #292727;
+        color: white;
+    }
+
+    a, .btn-link {
+        color: #006bb7;
+    }
+
+    .btn-primary {
+        color: #fff;
+        background-color: #1b6ec2;
+        border-color: #1861ac;
+    }
+
+    .mod {
+        position: sticky;
+        z-index: 100;
+        top: 10px;
+    }
+
+    .mod-box {
+        border: 12px solid #239ef7;
+        background-color: bisque;
+        color: black;
+        padding: 2rem;
+    }
+
+    .btn:focus, .btn:active:focus, .btn-link.nav-link:focus, .form-control:focus, .form-check-input:focus {
+        box-shadow: 0 0 0 0.1rem white, 0 0 0 0.25rem #258cfb;
+    }
+
+    .content {
+        padding-top: 1.1rem;
+    }
+
+    h1:focus {
+        outline: none;
+    }
+
+    .valid.modified:not([type=checkbox]) {
+        outline: 1px solid #26b050;
+    }
+
+    .invalid {
+        outline: 1px solid #e50000;
+    }
+
+    .validation-message {
+        color: #e50000;
+    }
+
+    .blazor-error-boundary::after {
+        content: "An error has occurred."
+    }
+
+    .darker-border-checkbox.form-check-input {
+        border-color: #929292;
+    }
+
+    .form-floating > .form-control-plaintext::placeholder, .form-floating > .form-control::placeholder {
+        color: var(--bs-secondary-color);
+        text-align: end;
+    }
+
+    .form-floating > .form-control-plaintext:focus::placeholder, .form-floating > .form-control:focus::placeholder {
+        text-align: start;
+    }
+
+/* ===== Portfolio view enhancements ===== */
+#members {
+    font-variant-numeric: tabular-nums;
+}
+
+.portfolio-total {
+    font-family: 'Courier New', monospace;
+    letter-spacing: 0.05em;
+    min-width: 9ch;
+    display: inline-block;
+    text-align: right;
+}
+
+.btn-icon {
+    background: transparent;
+    border: 1px solid transparent;
+    color: inherit;
+    cursor: pointer;
+    font-size: 1.05rem;
+    padding: 0.1rem 0.45rem;
+    line-height: 1;
+    border-radius: 3px;
+}
+
+.btn-icon:hover { border-color: #355825; }
+.btn-icon:focus-visible { outline: 2px solid #258cfb; outline-offset: 1px; }
+
+.portfolio-toolbar {
+    display: flex;
+    gap: 0.6rem;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    padding: 0.5rem;
+    margin: 0 auto 0.4rem;
+    color: #ccc;
+    font-size: 0.85rem;
+}
+
+.portfolio-toolbar .filter-input {
+    background: #1a1d1f;
+    color: antiquewhite;
+    border: 1px solid #355825;
+    padding: 0.25rem 0.5rem;
+    border-radius: 3px;
+    min-width: 220px;
+    font-size: 0.85rem;
+}
+
+.portfolio-toolbar .filter-input:focus {
+    outline: none;
+    border-color: #258cfb;
+    box-shadow: 0 0 0 2px rgba(37,140,251,0.25);
+}
+
+.portfolio-toolbar .btn-refresh {
+    background: #355825;
+    color: #fff;
+    border: 1px solid #4a7a35;
+    padding: 0.25rem 0.7rem;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 0.85rem;
+}
+
+.portfolio-toolbar .btn-refresh:hover:not([disabled]) { background: #4a7a35; }
+.portfolio-toolbar .btn-refresh:focus-visible { outline: 2px solid #258cfb; outline-offset: 1px; }
+.portfolio-toolbar .btn-refresh[disabled] { opacity: 0.55; cursor: not-allowed; }
+
+.portfolio-toolbar .btn-refresh-mini {
+    padding: 0.1rem 0.4rem;
+    font-size: 0.75rem;
+    line-height: 1;
+}
+
+.portfolio-toolbar .last-updated { font-size: 0.8rem; color: #aaa; }
+.portfolio-toolbar .hint { font-size: 0.75rem; color: #888; font-style: italic; }
+
+#members thead th .sort-btn {
+    background: transparent;
+    border: none;
+    color: inherit;
+    cursor: pointer;
+    font: inherit;
+    font-weight: bold;
+    text-transform: uppercase;
+    padding: 2px 4px;
+    width: 100%;
+    text-align: center;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+}
+
+#members thead th .sort-btn:focus-visible {
+    outline: 2px solid #258cfb;
+    outline-offset: -2px;
+}
+
+#members thead th .sort-glyph {
+    font-size: 0.75em;
+    opacity: 0.4;
+    transition: opacity 0.1s ease;
+}
+
+#members thead th[aria-sort="ascending"] .sort-glyph,
+#members thead th[aria-sort="descending"] .sort-glyph {
+    opacity: 1;
+    color: #fff5d6;
+}
+
+#members .security-cell {
+    cursor: pointer;
+    text-decoration: underline dotted transparent;
+    text-underline-offset: 2px;
+}
+
+#members tbody tr:hover .security-cell {
+    text-decoration-color: currentColor;
+}
+
+#members tfoot tr.totals-row {
+    background-color: #2a3530;
+    color: #fff5d6;
+    position: sticky;
+    bottom: 0;
+}
+
+#members tfoot tr.totals-row td {
+    border-top: 2px solid #4a7a35;
+    padding: 4px;
+}
+
+#members tbody td .muted { color: #6a6a6a; }
+
+.empty-state {
+    text-align: center;
+    color: #aaa;
+    padding: 2rem 1rem;
+    font-style: italic;
+    max-width: 500px;
+    margin: 0 auto;
+}
+
+.empty-state .btn-refresh {
+    margin-top: 0.6rem;
+    background: #355825;
+    color: #fff;
+    border: 1px solid #4a7a35;
+    padding: 0.25rem 0.7rem;
+    border-radius: 3px;
+    cursor: pointer;
+}
+
+.skeleton-row .skeleton-bar,
+#members thead th .skeleton-bar {
+    display: inline-block;
+    height: 0.85em;
+    width: 100%;
+    background: linear-gradient(90deg, #2a2d2f 25%, #3a3d3f 50%, #2a2d2f 75%);
+    background-size: 200% 100%;
+    animation: skeleton-shimmer 1.4s infinite linear;
+    border-radius: 2px;
+    vertical-align: middle;
+}
+
+@keyframes skeleton-shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
+tr.row-selected td { background-color: #2a3a2a; }
+
+.portfolio-toolbar .btn-refresh.btn-active {
+    background: #1b6ec2;
+    border-color: #4e9af1;
+    outline: none;
+}
+
+/* ===== Chart modal ===== */
+.chart-modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.65);
+    z-index: 1050;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.chart-modal-dialog {
+    background: #22262a;
+    border: 1px solid #444;
+    border-radius: 8px;
+    padding: 1rem;
+    box-shadow: 0 8px 40px rgba(0,0,0,0.5);
+}
+
+.chart-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+    gap: 1rem;
+}
+
+.chart-modal-title {
+    color: #ccc;
+    font-size: 0.9rem;
+}
+
+.chart-modal-close {
+    background: none;
+    border: none;
+    color: #aaa;
+    font-size: 1.1rem;
+    cursor: pointer;
+    padding: 0 4px;
+    line-height: 1;
+}
+
+.chart-modal-close:hover { color: #fff; }
+
+.chart-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 0.85rem;
+    padding: 0 2px;
+    line-height: 1;
+    opacity: 0.5;
+    vertical-align: middle;
+}
+
+.chart-btn:hover { opacity: 1; }

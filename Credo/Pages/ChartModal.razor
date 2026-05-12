@@ -1,0 +1,63 @@
+@inject Credo.Services.GraphService graph
+@inject Microsoft.JSInterop.IJSRuntime jsr
+@using Credo.Services
+
+<div class="chart-modal-backdrop" @onclick="Close">
+    <div class="chart-modal-dialog" @onclick:stopPropagation>
+        <div class="chart-modal-header">
+            <span class="chart-modal-title">@(Chart?.Title ?? "")</span>
+            <div class="portfolio-toolbar" style="padding:0; margin:0; justify-content:flex-end;">
+                <button class="btn-refresh btn-refresh-mini"
+                        @onclick="TogglePct" title="Toggle % change view">@range</button>
+                <button class="chart-modal-close" @onclick="Close" title="Close">✕</button>
+            </div>
+        </div>
+        <div style="position:relative; height:70vh; width:@(Width > 0 ? Width + "px" : "min(900px,88vw)"); background:#1a1d1f; border-radius:6px; padding:0.5rem;">
+            <canvas id="chartModalCanvas"></canvas>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public ChartData? Chart { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+    [Parameter] public int Width { get; set; }
+
+    private string range = "Percentage";
+    private ChartData? visibleChart;
+    private bool chartRendered;
+    private bool isPct = true;
+
+    protected override void OnParametersSet()
+    {
+        if (Chart is not null)
+        {
+            visibleChart = Chart;
+            chartRendered = false;
+        }
+    }
+
+    private async Task TogglePct()
+    {
+        isPct = !isPct;
+        range = isPct ? "Percentage" : "Price";
+        await jsr.InvokeVoidAsync("toggleSecurityChartPct");
+    }
+
+    private async Task Close()
+    {
+        if (OnClose.HasDelegate)
+            await OnClose.InvokeAsync();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (visibleChart is not null && !chartRendered)
+        {
+            chartRendered = true;
+            await jsr.InvokeVoidAsync("renderSecurityChart", "chartModalCanvas",
+                visibleChart.Labels, visibleChart.Data, visibleChart.SpyData,
+                visibleChart.Title, visibleChart.TradeData, visibleChart.SellTradeData, isPct);
+        }
+    }
+}

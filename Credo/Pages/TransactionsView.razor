@@ -1,0 +1,122 @@
+﻿@page "/transactions"
+@page "/transactions/{Data}"
+@using Credo.Models
+@using Microsoft.AspNetCore.Components.Authorization
+@* @using Microsoft.AspNetCore.Components.QuickGrid *@
+@using System.Globalization
+
+<h4 class="text-center">Transactions</h4>
+<div style="width:fit-content;max-width:100%; margin:0 auto;">
+    @if (Transactions == null)
+    {
+        <p><em>Loading...</em></p>
+    }
+    else
+    {
+        <div class="scroll-table">
+            <table id="members">
+                <thead>
+                    <tr>
+                        <th @onclick="@(() => SortData("TDate"))" style="cursor:pointer">
+                            Date @if (sortColumn == "TDate") {
+                            <span>@(sortAscending ? "▲" : "▼")</span>
+                        }
+                    </th>
+                    <th @onclick="@(() => SortData("Code"))" style="cursor:pointer">
+                        Code @if (sortColumn == "Code") {
+                        <span>@(sortAscending ? "▲" : "▼")</span>
+                    }
+                </th>
+                <th>Quant</th>
+                <th @onclick="@(() => SortData("Security"))" style="cursor:pointer">
+                    Security @if (sortColumn == "Security") {
+                    <span>@(sortAscending ? "▲" : "▼")</span>
+                }
+            </th>
+            <th>Cur</th>
+            <th>Local Amount</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var transaction in Transactions)
+        {
+            <tr>
+                <td class="text-end">@transaction.TradeDate</td>
+                <td class="text-center">@transaction.TranCode</td>
+                <td class="text-center">@transaction.Quantity</td>
+                <td>@transaction.Security</td>
+                <td>@transaction.Currency</td>
+                @{
+                    CultureInfo info = transaction.Currency switch
+                    {
+                        "USD" => new CultureInfo("en-US"),
+                        "EUR" => new CultureInfo("en-IE"),
+                        "GBP" => new CultureInfo("en-GB"),
+                        "DKK" => new CultureInfo("da-DK"),
+                        "CHF" => new CultureInfo("fr-CH"),
+                        "HKD" => new CultureInfo("en-HK"),
+                        _ => new CultureInfo("en-US")
+                    };
+                    <td class="text-end">@(transaction.LocalAmount?.ToString("C", info))</td>
+                }
+            </tr>
+        }
+        @if (Data != null)
+        {
+            <tr>
+                <td></td>
+                <td></td>
+                <td></td>
+                <td>TOTAL</td>
+                <td></td>
+                <td class="text-end">@Transactions.Sum(s => s.LocalAmount ?? 0).ToString("C", new CultureInfo("en-GB"))</td>
+            </tr>
+            @foreach (var transaction in YearlyFees)
+            {
+                <tr>
+                    <td class="text-end">@transaction.TradeDate</td>
+                    <td class="text-center">@transaction.TranCode</td>
+                    <td>@transaction.Quantity</td>
+                    <td>@transaction.Security</td>
+                    <td>@transaction.Currency</td>
+                    @{
+                        CultureInfo info = transaction.Currency switch
+                        {
+                            "USD" => new CultureInfo("en-US"),
+                            "EUR" => new CultureInfo("en-IE"),
+                            "GBP" => new CultureInfo("en-GB"),
+                            "DKK" => new CultureInfo("da-DK"),
+                            "CHF" => new CultureInfo("fr-CH"),
+                            "HKD" => new CultureInfo("en-HK"),
+                            _ => new CultureInfo("en-US")
+                        };
+                        <td class="text-end">@(transaction.LocalAmount?.ToString("C", info))</td>
+                    }
+                </tr>
+            }
+        }
+    </tbody>
+</table>
+</div>
+      
+    }
+</div>
+
+<div Id="Transactions" class="context-menu" @onmouseleave="ContextMenuHide" style="display: none; position: absolute;">
+    <ul class="context-menu-list">
+        <li class="has-submenu">
+            List
+            <ul class="submenu">
+                <li>Tickers</li>
+            </ul>
+        </li>
+        <li class="has-submenu">
+            View
+            <ul class="submenu">
+            </ul>
+        </li>
+
+    </ul>
+</div>
+
+

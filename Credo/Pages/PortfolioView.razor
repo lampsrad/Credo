@@ -1,0 +1,239 @@
+@page "/"
+@page "/portfolio"
+@using Credo.Models
+@using System.Globalization
+
+<div class="container-fluid">
+    <div class="d-flex justify-content-center align-items-center gap-2">
+        <h4 class="m-0">Credo Portfolio</h4>
+    </div>
+</div>
+
+@if (Portfs is not null)
+{
+    <div class="portfolio-toolbar">
+
+        <button type="button" class="btn-refresh"
+                @onclick="RefreshAsync" disabled="@isRefreshing"
+                title="Refresh prices" aria-label="Refresh prices">
+            @(isRefreshing ? "⟳ Refreshing…" : "⟳ Refresh")
+        </button>
+        @if (lastUpdated is not null)
+        {
+            <span class="last-updated" title="@lastUpdated.Value.ToString("F", CultureInfo.GetCultureInfo("en-us"))">
+                Updated @FormatRelative(lastUpdated.Value)
+            </span>
+        }
+        <button type="button" class="btn-refresh btn-refresh-mini"
+                @onclick="ToggleColumns"
+                title="@(hasRefreshed ? "Hide $ columns" : "Show $ columns")"
+                aria-pressed="@hasRefreshed.ToString().ToLowerInvariant()"
+                aria-label="Toggle column visibility">
+            <span style="@(hasRefreshed ? "" : "text-decoration: line-through;")">👁</span>
+        </button>
+        <button type="button" class="btn-refresh btn-refresh-mini @(chartRange == "all" ? "btn-active" : "")"
+                @onclick="@(() => SetChartRange("all"))">All</button>
+        <button type="button" class="btn-refresh btn-refresh-mini @(chartRange == "5y" ? "btn-active" : "")"
+                @onclick="@(() => SetChartRange("5y"))">5-Y</button>
+        <button type="button" class="btn-refresh btn-refresh-mini @(chartRange == "2y" ? "btn-active" : "")"
+                @onclick="@(() => SetChartRange("2y"))">2-Y</button>
+        <button type="button" class="btn-refresh btn-refresh-mini @(chartRange == "1y" ? "btn-active" : "")"
+                @onclick="@(() => SetChartRange("1y"))">1-Y</button>
+    </div>
+}
+
+<div style="width:fit-content;max-width:100%; margin:0 auto;">
+    @if (Portfs is null)
+    {
+        <div class="scroll-table" aria-busy="true" aria-label="Loading portfolio">
+            <table id="members">
+                <thead>
+                    <tr>
+                        @for (int i = 0; i < 10; i++)
+                        {
+                            <th><span class="skeleton-bar" style="width:3rem"></span></th>
+                        }
+                    </tr>
+                </thead>
+                <tbody>
+                    @for (int r = 0; r < 6; r++)
+                    {
+                        <tr class="skeleton-row">
+                            @for (int c = 0; c < 10; c++)
+                            {
+                                <td><span class="skeleton-bar"></span></td>
+                            }
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+    else if (Items.Count == 0)
+    {
+        <div class="empty-state">
+            <p>No holdings yet. Import transactions or update securities to populate your portfolio.</p>
+        </div>
+    }
+    else
+    {
+        <div class="scroll-table" @oncontextmenu:preventDefault @oncontextmenu="ContextMenuShow">
+            <table id="members">
+                <thead>
+                    <tr>
+                        <th title="Quantity of Shares">Qty</th>
+                        <th aria-sort="@AriaSort("Security")">
+                            <button class="sort-btn" type="button" @onclick="@(() => SortData("Security"))">
+                                Security <span class="sort-glyph" aria-hidden="true">@SortGlyph("Security")</span>
+                            </button>
+                        </th>
+                        <th>Curr</th>
+                        <th>Price</th>
+                        <th aria-sort="@AriaSort("Change")" title="Change from Last Close">
+                            <button class="sort-btn" type="button" @onclick="@(() => SortData("Change"))">
+                                ↑↓% <span class="sort-glyph" aria-hidden="true">@SortGlyph("Change")</span>
+                            </button>
+                        </th>
+                        <th aria-sort="@AriaSort("MarketValue")" title="Market Value Current">
+                            <button class="sort-btn" type="button" @onclick="@(() => SortData("MarketValue"))">
+                                $ Value <span class="sort-glyph" aria-hidden="true">@SortGlyph("MarketValue")</span>
+                            </button>
+                        </th>
+                        <th aria-sort="@AriaSort("Gain")">
+                            <button class="sort-btn" type="button" @onclick="@(() => SortData("Gain"))">
+                                Gain $ <span class="sort-glyph" aria-hidden="true">@SortGlyph("Gain")</span>
+                            </button>
+                        </th>
+                        <th aria-sort="@AriaSort("GainPercentage")">
+                            <button class="sort-btn" type="button" @onclick="@(() => SortData("GainPercentage"))">
+                                Gain% <span class="sort-glyph" aria-hidden="true">@SortGlyph("GainPercentage")</span>
+                            </button>
+                        </th>
+                        <th aria-sort="@AriaSort("IRR")"
+                            title="Annualized Return after Cost of Money was taken in consideration and NPV=0. Includes Dividends and Interest.">
+                            <button class="sort-btn" type="button" @onclick="@(() => SortData("IRR"))">
+                                IRR% <span class="sort-glyph" aria-hidden="true">@SortGlyph("IRR")</span>
+                            </button>
+                        </th>
+                        <th aria-sort="@AriaSort("Percentage")" title="Percentage of Portfolio">
+                            <button class="sort-btn" type="button" @onclick="@(() => SortData("Percentage"))">
+                                % <span class="sort-glyph" aria-hidden="true">@SortGlyph("Percentage")</span>
+                            </button>
+                        </th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var p in Items)
+                    {
+                        <tr @key="p.Id" class="text-end @(selectedRow == p ? "row-selected" : "")"
+                            @onclick="@(() => RowClickedAsync(p))">
+                            <td>@(p.Quantity?.ToString("N0", CultureInfo.InvariantCulture) ?? "—")</td>
+                            <td class="text-start">@p.Security_Description</td>
+                            <td class="text-start">@p.Currency</td>
+                            <td>@FormatPrice(p)</td>
+                            <td class="@PctClass(p.security?.ChangePercent)">
+                                @FormatSignedPct2(p.security?.ChangePercent)
+                            </td>
+
+                            <td class="@(hasRefreshed && p.Market_Value > 0 ? (p.Market_Value > p.Cost ? "text-success" : "text-danger") : "")">
+                                @if (hasRefreshed && p.Market_Value > 0)
+                                {
+                                    @string.Format(CultureInfo.InvariantCulture, "${0:N2}", p.Market_Value)
+                                }
+                                else if (hasRefreshed)
+                                {
+                                    <span class="muted">—</span>
+                                }
+                            </td>
+                            <td class="@(hasRefreshed ? PctClass(p.Gain) : "")">
+                                @if (hasRefreshed && p.Price > 1)
+                                {
+                                    @FormatSignedMoney(p.Gain)
+                                }
+                                else if (hasRefreshed)
+                                {
+                                    <span class="muted">—</span>
+                                }
+                            </td>
+                            <td class="@PctClass(p.GainPerc)">
+                                @if (p.GainPerc is not null)
+                                {
+                                    @FormatSignedPctInt(p.GainPerc)
+                                }
+                                else
+                                {
+                                    <span class="muted">—</span>
+                                }
+                            </td>
+                            <td class="@PctClass(p.IRR)">
+                                @if (p.Market_Value > 0 && p.IRR is not null)
+                                {
+                                    @FormatSignedPct1(p.IRR)
+                                }
+                                else
+                                {
+                                    <span class="muted">—</span>
+                                }
+                            </td>
+                            <td>
+                                @if (p.Market_Value > 0 && p.Pct is not null)
+                                {
+                                    @string.Format(CultureInfo.InvariantCulture, "{0:N1}%", p.Pct)
+                                }
+                                else
+                                {
+                                    <span class="muted">—</span>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+              
+            </table>
+        </div>
+
+        @if (hasRefreshed)
+        {
+            <div class="scroll-table" style="margin:0.75rem auto 0 0;">
+                <table id="members">
+                    <thead>
+                        <tr>
+                            <th title="Sum of Market Value today">Today</th>
+                            <th title="Sum of Market Value at previous close">Yesterday</th>
+                            <th title="Sum of (today − yesterday) per holding">Day Gain</th>
+                            <th title="Sum of Gain $">Tot Gain</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr class="text-end">
+                            <td>@string.Format(CultureInfo.InvariantCulture, "${0:N2}", TotalMarketValue)</td>
+                            <td>@string.Format(CultureInfo.InvariantCulture, "${0:N2}", totalYesterday)</td>
+                            <td class="@PctClass(TotalGainDay)">@FormatSignedMoney(TotalGainDay)</td>
+                            <td class="@PctClass(TotalGain)">@FormatSignedMoney(TotalGain)</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        }
+        @if (visibleChart is not null)
+        {
+            <div style="width:fit-content; max-width:100%; margin:1rem auto 0;">
+                @if (visibleChart.Title is not null)
+                {
+                    <div style="text-align:center; color:#ccc; font-size:0.85rem; margin-bottom:0.25rem;">@visibleChart.Title</div>
+                }
+                <div style="position:relative; height:380px; width:min(900px,95vw); background:#1a1d1f; border-radius:6px; padding:0.5rem;">
+                    <canvas id="marketValueChart"></canvas>
+                </div>
+            </div>
+        }
+
+    }
+</div>
+
+<div Id="Securities" class="context-menu" @onmouseleave="ContextMenuHide" style="display:none; position:absolute;">
+    <ul class="context-menu-list">
+        <li @onclick="RefreshAsync" title="Reload portfolio data">Refresh prices</li>
+    </ul>
+</div>
+
