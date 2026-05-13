@@ -82,7 +82,6 @@
             <td>@s.Exchange</td>
             <td @onclick="((e) => SecurityClicked(e, s))" class="@(s.Selected ? "bg-primary" : hasPosition ? "text-primary" : "")" style="cursor: pointer; user-select: none;">@s.ticker?.Name</td>
             <td class="@(s.Selected ? "bg-primary" : "")">@s.Currency</td>
-            <td class="text-end @(s.Price >= s.FiftyDMA ? "text-success" : "text-danger")">@s.FiftyDMA</td>
             <td class="text-end">
                 @{
                     string priceFormatted = s.Currency switch

@@ -54,8 +54,7 @@ public class UpdateService
                     security.PrevClose = snapshot.RegularMarketPreviousClose;
                     security.Exchange = snapshot.FullExchangeName;
                     security.ChangePercent = (decimal)snapshot.RegularMarketChangePercent;
-                    security.FiftyDMA = (decimal)snapshot.FiftyDayAverage;
-                    security.TwoHundredDMA = (decimal)snapshot.TwoHundredDayAverage;
+
                     security.DividendYield = (decimal)snapshot.DividendYield;
                     security.EPS = snapshot.EpsTrailingTwelveMonths;
                     security.PE = (decimal)snapshot.TrailingPE;
@@ -178,27 +177,6 @@ public class UpdateService
                 var current = ticks[i];
                 if (!existingKeys.Add((ticker.Symbol!, current.Date)))
                     continue;
-
-                decimal? ma50 = null;
-
-                // Calculate 50-day MA only when we have at least 50 days
-                if (i >= 49)
-                {
-                    var sum = 0.0;
-                    for (int j = 0; j < 50; j++)
-                    {
-                        sum += ticks[i - j].Close;
-                    }
-                    ma50 = (decimal)(sum / 50);
-                }
-
-                toAdd.Add(new Models.History
-                {
-                    Symbol = ticker.Symbol,
-                    Date = current.Date,
-                    Price = double.IsNaN(current.Close) ? null : (decimal)current.Close,
-                    FiftyDayMA = ma50
-                });
             }
     }
 
