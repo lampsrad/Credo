@@ -54,8 +54,8 @@ public class UpdateService
                     security.PrevClose = snapshot.RegularMarketPreviousClose;
                     security.Exchange = snapshot.FullExchangeName;
                     security.ChangePercent = (decimal)snapshot.RegularMarketChangePercent;
-                    security.FiftyDayAverage = (decimal)snapshot.FiftyDayAverage;
-                    security.TwoHundredDayAverage = (decimal)snapshot.TwoHundredDayAverage;
+                    security.FiftyDMA = (decimal)snapshot.FiftyDayAverage;
+                    security.TwoHundredDMA = (decimal)snapshot.TwoHundredDayAverage;
                     security.DividendYield = (decimal)snapshot.DividendYield;
                     security.EPS = snapshot.EpsTrailingTwelveMonths;
                     security.PE = (decimal)snapshot.TrailingPE;
