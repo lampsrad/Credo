@@ -94,7 +94,7 @@ public partial class PortfolioView
         isRefreshing = true;
         try
         {
-            Portfs = await repo.GetEntitiesNTAsync<Portfolio>(p=>!p.security!.ticker!.Symbol!.EndsWith("=X"));
+            Portfs = await repo.GetEntitiesNTAsync<Portfolio>();
             lastUpdated = DateTime.Now;
             portfolioChart = await graph.LoadPortfolioDataAsync();
             if (portfolioChart is not null)

@@ -46,7 +46,7 @@ function sma(arr, n) {
     return out;
 }
 
-function buildChart(canvasId, labels, rawData, rawSpy, dataLabel, pct, rawTrades, rawSellTrades, enableRebaseClick = false) {
+function buildChart(canvasId, labels, rawData, rawSpy, dataLabel, pct, rawTrades, rawSellTrades, enableRebaseClick = false, costBase = null) {
     const canvas = document.getElementById(canvasId);
     if (!canvas) return;
     if (_marketChart) { _marketChart.destroy(); _marketChart = null; }
@@ -60,15 +60,15 @@ function buildChart(canvasId, labels, rawData, rawSpy, dataLabel, pct, rawTrades
     const isSecurity = !!dataLabel;
 
     let plotData, plotSpy, plotTrades, plotSellTrades, leftLabel, rightLabel;
-    const pctFromStart = arr => {
-        const baseVal = arr.find(v => v != null);
-        if (baseVal == null || baseVal === 0) return arr.map(() => null);
-        return arr.map(v => v != null ? +((v / baseVal - 1) * 100).toFixed(2) : null);
+    const pctFromBase = (arr, base) => {
+        const b = base ?? arr.find(v => v != null);
+        if (b == null || b === 0) return arr.map(() => null);
+        return arr.map(v => v != null ? +((v / b - 1) * 100).toFixed(2) : null);
     };
-    if (pct && isSecurity) {
-        plotData = pctFromStart(rawData);
-        plotSpy = rawSpy ? pctFromStart(rawSpy) : rawSpy;
-        leftLabel = dataLabel + ' (% change)';
+    if (pct) {
+        plotData = pctFromBase(rawData, null);
+        plotSpy = rawSpy ? pctFromBase(rawSpy, null) : rawSpy;
+        leftLabel = (dataLabel || 'Portfolio') + ' (% change)';
         rightLabel = 'S&P 500 (% change)';
         if (rawTrades && rawTrades.length) {
             plotTrades = rawTrades.map((v, i) => v != null ? plotData[i] : null);
@@ -132,7 +132,7 @@ function buildChart(canvasId, labels, rawData, rawSpy, dataLabel, pct, rawTrades
             backgroundColor: 'rgba(241,161,78,0.0)',
             borderWidth: 2, pointRadius: 0, pointHoverRadius: 4,
             fill: false, tension: 0.3,
-            yAxisID: pct && isSecurity ? 'y' : 'y1',
+            yAxisID: pct ? 'y' : 'y1',
             spanGaps: true
         });
     }
@@ -204,13 +204,13 @@ function buildChart(canvasId, labels, rawData, rawSpy, dataLabel, pct, rawTrades
         y: {
             position: 'left',
             ticks: {
-                color: pct && isSecurity ? '#d7c9aa' : '#4e9af1',
-                callback: v => pct && isSecurity ? v.toFixed(1) + '%' : (useK ? '$' + (v / 1000).toFixed(0) + 'k' : '$' + v.toFixed(2))
+                color: pct ? '#d7c9aa' : '#4e9af1',
+                callback: v => pct ? v.toFixed(1) + '%' : (useK ? '$' + (v / 1000).toFixed(0) + 'k' : '$' + v.toFixed(2))
             },
             grid: { color: 'rgba(255,255,255,0.06)' }
         },
         y1: {
-            display: !(pct && isSecurity),
+            display: !pct,
             position: 'right',
             ticks: {
                 color: '#f1a14e',
@@ -258,13 +258,13 @@ function buildChart(canvasId, labels, rawData, rawSpy, dataLabel, pct, rawTrades
                             const v = ctx.parsed.y;
                             if (v == null) return null;
                             const isRight = ctx.dataset.yAxisID === 'y1';
-                            if (pct && isSecurity) return ' ' + ctx.dataset.label + ': ' + v.toFixed(1) + '%';
-                            const decimals = isRight ? 0 : (isSecurity ? 2 : 0);
+                            if (pct) return ' ' + ctx.dataset.label + ': ' + v.toFixed(1) + '%';
+                            const decimals = isRight ? 0 : 2;
                             const formatted = v.toLocaleString('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
                             return ' ' + ctx.dataset.label + ': ' + (isRight ? '' : '$') + formatted;
                         },
                         footer: items => {
-                            if (!pct || !isSecurity) return undefined;
+                            if (!pct) return undefined;
                             const stockItem = items.find(i => i.dataset.label && i.dataset.label.includes('% change') && i.dataset.label !== rightLabel);
                             const spyItem = items.find(i => i.dataset.label === rightLabel);
                             if (!stockItem || !spyItem || stockItem.parsed.y == null || spyItem.parsed.y == null) return undefined;
@@ -381,7 +381,7 @@ function _rebuildVisible() {
         p.dataLabel, _chartPct,
         p.tradeData ? p.tradeData.slice(s) : p.tradeData,
         p.sellTradeData ? p.sellTradeData.slice(s) : p.sellTradeData,
-        true);
+        true, p.costBase ?? null);
 }
 
 window.toggleMA50 = () => {
