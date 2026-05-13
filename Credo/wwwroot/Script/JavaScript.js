@@ -30,6 +30,21 @@ let _rebaseHandler = null;
 let _rebaseCanvas = null;
 let _defaultTooltipHandler = null;
 let _defaultTooltipCanvas = null;
+let _show50ma = false;
+let _show200ma = false;
+
+function sma(arr, n) {
+    const out = new Array(arr.length).fill(null);
+    for (let i = n - 1; i < arr.length; i++) {
+        let sum = 0, cnt = 0;
+        for (let j = i - n + 1; j <= i; j++) {
+            const v = arr[j];
+            if (v != null) { sum += v; cnt++; }
+        }
+        if (cnt === n) out[i] = sum / n;
+    }
+    return out;
+}
 
 function buildChart(canvasId, labels, rawData, rawSpy, dataLabel, pct, rawTrades, rawSellTrades, enableRebaseClick = false) {
     const canvas = document.getElementById(canvasId);
@@ -37,7 +52,10 @@ function buildChart(canvasId, labels, rawData, rawSpy, dataLabel, pct, rawTrades
     if (_marketChart) { _marketChart.destroy(); _marketChart = null; }
     Chart.Tooltip.positioners.topLeft = function(_el, _pos) {
         const ca = this.chart.chartArea;
-        return { x: ca.left + 10, y: ca.top + 35};
+        // Anchor at the top-left INSIDE the plot area; with yAlign:'top' the
+        // tooltip body grows downward from this point, so the box never
+        // extends above the chart's top edge.
+        return { x: ca.left + 10, y: ca.top + 10 };
     };
     const isSecurity = !!dataLabel;
 
@@ -118,6 +136,45 @@ function buildChart(canvasId, labels, rawData, rawSpy, dataLabel, pct, rawTrades
             spanGaps: true
         });
     }
+    if (_show50ma || _show200ma) {
+        // MAs are computed against the FULL underlying series (e.g. from 2015),
+        // not the visible window — otherwise rebasing would leave the first
+        // 50/200 points of the visible range blank. The full MA is then sliced
+        // to the visible window and, in pct mode, rebased to the same baseline
+        // the main series uses.
+        const fullData = (_chartParams && _chartParams.data) ? _chartParams.data : rawData;
+        const offset = Math.max(0, fullData.length - rawData.length);
+        const pctBase = (pct && isSecurity) ? rawData.find(v => v != null) : null;
+        const sliceAndRebase = maFull => {
+            const sliced = maFull.slice(offset);
+            if (pctBase == null || pctBase === 0) return sliced;
+            return sliced.map(v => v != null ? +((v / pctBase - 1) * 100).toFixed(2) : null);
+        };
+        if (_show50ma && fullData.length >= 50) {
+            datasets.push({
+                label: '50 DMA',
+                data: sliceAndRebase(sma(fullData, 50)),
+                borderColor: '#ffd54f',
+                backgroundColor: 'rgba(255,213,79,0)',
+                borderWidth: 1.5, pointRadius: 0, pointHoverRadius: 3,
+                fill: false, tension: 0.2,
+                yAxisID: 'y',
+                spanGaps: true
+            });
+        }
+        if (_show200ma && fullData.length >= 200) {
+            datasets.push({
+                label: '200 DMA',
+                data: sliceAndRebase(sma(fullData, 200)),
+                borderColor: '#ce93d8',
+                backgroundColor: 'rgba(206,147,216,0)',
+                borderWidth: 1.5, pointRadius: 0, pointHoverRadius: 3,
+                fill: false, tension: 0.2,
+                yAxisID: 'y',
+                spanGaps: true
+            });
+        }
+    }
 
     const isDaily = labels.length > 0 && labels[0].length === 10;
     const xTicks = {
@@ -193,6 +250,9 @@ function buildChart(canvasId, labels, rawData, rawSpy, dataLabel, pct, rawTrades
                 legend: { labels: { color: '#d7c9aa' } },
                 tooltip: {
                     position: 'topLeft',
+                    yAlign: 'top',
+                    xAlign: 'left',
+                    caretSize: 0,
                     callbacks: {
                         label: ctx => {
                             const v = ctx.parsed.y;
@@ -287,6 +347,8 @@ window.getElementWidth = id => document.getElementById(id)?.offsetWidth ?? 0;
 
 window.renderMarketValueChart = (canvasId, labels, data, spyData, dataLabel, tradeData, sellTradeData) => {
     _chartPct = false;
+    _show50ma = false;
+    _show200ma = false;
     _chartParams = { canvasId, labels, data, spyData, dataLabel, tradeData, sellTradeData };
     buildChart(canvasId, labels, data, spyData, dataLabel, false, tradeData, sellTradeData);
 };
@@ -294,6 +356,8 @@ window.renderMarketValueChart = (canvasId, labels, data, spyData, dataLabel, tra
 window.renderSecurityChart = (canvasId, labels, data, spyData, dataLabel, tradeData, sellTradeData, startPct) => {
     _chartPct = startPct ?? false;
     _displayOffset = 0;
+    _show50ma = false;
+    _show200ma = false;
     _chartParams = { canvasId, labels, data, spyData, dataLabel, tradeData, sellTradeData };
     buildChart(canvasId, labels, data, spyData, dataLabel, _chartPct, tradeData, sellTradeData, true);
 };
@@ -303,4 +367,30 @@ window.toggleSecurityChartPct = () => {
     _displayOffset = 0;
     const p = _chartParams;
     buildChart(p.canvasId, p.labels, p.data, p.spyData, p.dataLabel, _chartPct, p.tradeData, p.sellTradeData, true);
+};
+
+function _rebuildVisible() {
+    const p = _chartParams;
+    if (!p) return;
+    const s = _displayOffset;
+    buildChart(p.canvasId,
+        p.labels.slice(s),
+        p.data.slice(s),
+        p.spyData ? p.spyData.slice(s) : p.spyData,
+        p.dataLabel, _chartPct,
+        p.tradeData ? p.tradeData.slice(s) : p.tradeData,
+        p.sellTradeData ? p.sellTradeData.slice(s) : p.sellTradeData,
+        true);
+}
+
+window.toggleMA50 = () => {
+    _show50ma = !_show50ma;
+    _rebuildVisible();
+    return _show50ma;
+};
+
+window.toggleMA200 = () => {
+    _show200ma = !_show200ma;
+    _rebuildVisible();
+    return _show200ma;
 };

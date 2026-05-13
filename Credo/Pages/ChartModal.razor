@@ -7,6 +7,10 @@
         <div class="chart-modal-header">
             <span class="chart-modal-title">@(Chart?.Title ?? "")</span>
             <div class="portfolio-toolbar" style="padding:0; margin:0; justify-content:flex-end;">
+                <button class="btn-refresh btn-refresh-mini @(show50 ? "btn-active" : "")"
+                        @onclick="Toggle50" title="Toggle 50-day moving average">50 DMA</button>
+                <button class="btn-refresh btn-refresh-mini @(show200 ? "btn-active" : "")"
+                        @onclick="Toggle200" title="Toggle 200-day moving average">200 DMA</button>
                 <button class="btn-refresh btn-refresh-mini"
                         @onclick="TogglePct" title="Toggle % change view">@range</button>
                 <button class="chart-modal-close" @onclick="Close" title="Close">✕</button>
@@ -27,6 +31,8 @@
     private ChartData? visibleChart;
     private bool chartRendered;
     private bool isPct = true;
+    private bool show50;
+    private bool show200;
 
     protected override void OnParametersSet()
     {
@@ -34,6 +40,8 @@
         {
             visibleChart = Chart;
             chartRendered = false;
+            show50 = false;
+            show200 = false;
         }
     }
 
@@ -42,6 +50,16 @@
         isPct = !isPct;
         range = isPct ? "Percentage" : "Price";
         await jsr.InvokeVoidAsync("toggleSecurityChartPct");
+    }
+
+    private async Task Toggle50()
+    {
+        show50 = await jsr.InvokeAsync<bool>("toggleMA50");
+    }
+
+    private async Task Toggle200()
+    {
+        show200 = await jsr.InvokeAsync<bool>("toggleMA200");
     }
 
     private async Task Close()
