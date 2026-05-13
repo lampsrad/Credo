@@ -25,6 +25,9 @@
             </span>
         }
         <button type="button" class="btn-refresh btn-refresh-mini"
+                @onclick="ShowPortfolioChartAsync"
+                title="Show portfolio market value chart">📈</button>
+        <button type="button" class="btn-refresh btn-refresh-mini"
                 @onclick="ToggleColumns"
                 title="@(hasRefreshed ? "Hide $ columns" : "Show $ columns")"
                 aria-pressed="@hasRefreshed.ToString().ToLowerInvariant()"
@@ -128,7 +131,12 @@
                         <tr @key="p.Id" class="text-end @(selectedRow == p ? "row-selected" : "")"
                             @onclick="@(() => RowClickedAsync(p))">
                             <td>@(p.Quantity?.ToString("N0", CultureInfo.InvariantCulture) ?? "—")</td>
-                            <td class="text-start">@p.Security_Description</td>
+                            <td class="text-start">
+                                <button class="chart-btn" title="Show chart"
+                                        @onclick="@(() => ShowChartAsync(p))"
+                                        @onclick:stopPropagation>📈</button>
+                                @p.Security_Description
+                            </td>
                             <td class="text-start">@p.Currency</td>
                             <td>@FormatPrice(p)</td>
                             <td class="@PctClass(p.security?.ChangePercent)">
@@ -231,6 +239,11 @@
 
     }
 </div>
+
+@if (showChart && securityChart is not null)
+{
+    <ChartModal Chart="securityChart" OnClose="CloseChart" Width="chartWidth" />
+}
 
 <div Id="Securities" class="context-menu" @onmouseleave="ContextMenuHide" style="display:none; position:absolute;">
     <ul class="context-menu-list">

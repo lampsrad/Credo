@@ -19,6 +19,7 @@ public sealed class RepoScope : IAsyncDisposable
 
     public void Add(object entity) => cx.Add(entity);
     public void AddRange<T>(IList<T> range) where T : class => cx.AddRange(range);
+    public void RemoveRange<T>(IList<T> range) where T : class => cx.RemoveRange(range);
     public async Task<T?> GetEntityAsync<T>(Expression<Func<T, bool>>? filter = null) where T : class
     {
         IQueryable<T> query = RepoQuery.BuildQuery<T>(cx.Set<T>());

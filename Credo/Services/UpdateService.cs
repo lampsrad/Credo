@@ -71,6 +71,7 @@ public class UpdateService
                 await scope.SaveChangesAsync();
             }
             await UpdatePortfolioAsync();
+            await AppendPortfolioHistoryAsync();
             state.UpdateProgress(100);
             state.Hide();
         }
@@ -115,6 +116,20 @@ public class UpdateService
                     p.IRR = (decimal)irr * 100;
             }
         }
+        await scope.SaveChangesAsync();
+    }
+    private async Task AppendPortfolioHistoryAsync()
+    {
+        await using var scope = repo.BeginScope();
+        var ports = await scope.GetEntitiesAsync<Portfolio>();
+        var total = Math.Round(ports.Sum(p => p.Market_Value ?? 0m), 2);
+        var today = DateOnly.FromDateTime(DateTime.Today);
+        var row = await scope.GetEntityAsync<Models.History>(
+            h => h.Symbol == "Portfolio" && h.Date == today);
+        if (row is null)
+            scope.Add(new Models.History { Symbol = "Portfolio", Date = today, Price = total });
+        else
+            row.Price = total;
         await scope.SaveChangesAsync();
     }
     public async Task UpdateHistoryAsync()

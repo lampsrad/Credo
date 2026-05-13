@@ -22,6 +22,9 @@ public partial class PortfolioView
     private string chartRange = "all";
     private bool chartRendered;
     private Portfolio? selectedRow;
+    private ChartData? securityChart;
+    private bool showChart;
+    private int chartWidth;
     private static bool IsUpdated;
     private string sortColumn = "Security";
     private bool IsVisibleTotal, sortAscending = true;
@@ -91,7 +94,7 @@ public partial class PortfolioView
         isRefreshing = true;
         try
         {
-            Portfs = await repo.GetEntitiesNTAsync<Portfolio>(null);
+            Portfs = await repo.GetEntitiesNTAsync<Portfolio>(p=>!p.security!.ticker!.Symbol!.EndsWith("=X"));
             lastUpdated = DateTime.Now;
             portfolioChart = await graph.LoadPortfolioDataAsync();
             if (portfolioChart is not null)
@@ -114,21 +117,33 @@ public partial class PortfolioView
         visibleChart = graph.SliceByRange(fullChart, range);
         chartRendered = false;
     }
-
-    private async Task RowClickedAsync(Portfolio p)
+    private void RowClickedAsync(Portfolio p)
     {
         selectedRow = p;
+    }
+    private async Task ShowChartAsync(Portfolio p)
+    {
         var symbol = p.security?.ticker?.Symbol;
         if (symbol is null) return;
-        var tickerChart = await graph.LoadTickerDataAsync(symbol, p.SecurityID);
-        if (tickerChart is null) return;
-        fullChart = tickerChart with { Title = p.Security_Description };
-        visibleChart = fullChart;
-        chartRange = "all";
-        chartRendered = false;
-        StateHasChanged();
+        var data = await graph.LoadTickerDataAsync(symbol, p.SecurityID);
+        if (data is null) return;
+        securityChart = data with { Title = p.Security_Description };
+        chartWidth = await jsr.InvokeAsync<int>("getViewportChartWidth");
+        showChart = true;
     }
-
+    private async Task ShowPortfolioChartAsync()
+    {
+        var data = await graph.LoadTickerDataAsync("Portfolio", null);
+        if (data is null) return;
+        securityChart = data with { Title = "Portfolio" };
+        chartWidth = await jsr.InvokeAsync<int>("getViewportChartWidth");
+        showChart = true;
+    }
+    private void CloseChart()
+    {
+        showChart = false;
+        securityChart = null;
+    }
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (visibleChart is not null && !chartRendered)

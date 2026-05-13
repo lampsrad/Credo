@@ -14,6 +14,5 @@ public class CredoDbContext : DbContext
     public virtual DbSet<Portfolio> Portfolios { get; set; }
     public virtual DbSet<Ticker> Tickers { get; set; }
     public virtual DbSet<Currency> Currencies { get; set; }
-    public virtual DbSet<MarketValue> MarketValues { get; set; }
     public virtual DbSet<History> Histories { get; set; }
 }

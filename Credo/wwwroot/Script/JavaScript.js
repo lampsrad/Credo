@@ -344,6 +344,7 @@ function buildChart(canvasId, labels, rawData, rawSpy, dataLabel, pct, rawTrades
 }
 
 window.getElementWidth = id => document.getElementById(id)?.offsetWidth ?? 0;
+window.getViewportChartWidth = () => Math.min(window.innerWidth - 80, 1400);
 
 window.renderMarketValueChart = (canvasId, labels, data, spyData, dataLabel, tradeData, sellTradeData) => {
     _chartPct = false;

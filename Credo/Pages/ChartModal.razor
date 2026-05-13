@@ -16,7 +16,7 @@
                 <button class="chart-modal-close" @onclick="Close" title="Close">✕</button>
             </div>
         </div>
-        <div style="position:relative; height:70vh; width:@(Width > 0 ? Width + "px" : "min(900px,88vw)"); background:#1a1d1f; border-radius:6px; padding:0.5rem;">
+        <div style="position:relative; aspect-ratio: 16 / 9; max-height:80vh; width:@(Width > 0 ? Width + "px" : "min(900px,88vw)"); background:#1a1d1f; border-radius:6px; padding:0.5rem;">
             <canvas id="chartModalCanvas"></canvas>
         </div>
     </div>

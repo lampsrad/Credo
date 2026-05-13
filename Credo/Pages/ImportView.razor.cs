@@ -18,7 +18,7 @@ public partial class ImportView
 
 
     private string Title = "IMPORTED";
-    private bool b1, b2, b3, b4, b5, b6, b7;
+    private bool b1, b2, b3, b4, b5, b6;
     private Models.Results results = new();
 
     private CsvConfiguration CsvConfig()
@@ -275,78 +275,6 @@ public partial class ImportView
         scope.AddRange(tickers);
         int cc = await scope.SaveChangesAsync();
         await ShowMessage(cc);
-    }
-    private async Task ImportMarketValues()
-    {
-        //try
-        {
-            b7 = true;
-            if (string.IsNullOrEmpty(cfg.DownloadsPath))
-            {
-                await ShowMessage(0);
-                return;
-            }
-            var exfile = Directory.GetFiles(cfg.DownloadsPath, "Historical Market Value*.csv").FirstOrDefault();
-            if (exfile is null)
-            {
-                await ShowMessage(0);
-                return;
-            }
-
-            // Account number is embedded in the filename: "Historical Market Value - 10011888.csv"
-            var fileName = Path.GetFileNameWithoutExtension(exfile);
-            var accMatch = Regex.Match(fileName, @"\d+");
-            var account = accMatch.Success ? accMatch.Value : null;
-
-            using var reader = new StreamReader(exfile);
-            using var csv = new CsvReader(reader, CsvConfig());
-
-            // CSV has preamble rows; scan until the "Time Period" header row.
-            bool headerFound = false;
-            while (csv.Read())
-            {
-                if (csv.GetField(2)?.Trim() == "Time Period")
-                {
-                    headerFound = true;
-                    break;
-                }
-            }
-            if (!headerFound) return;
-
-            await using var scope = repo.BeginScope();
-            var vals = await scope.GetEntitiesAsync<MarketValue>();
-                var existing=vals.Select(m => m.Date)
-                .ToHashSet();
-
-            var rows = new List<MarketValue>();
-            while (csv.Read())
-            {
-                var period = csv.GetField(2)?.Trim();
-                var raw = csv.GetField(4)?.Replace(" ", "").Trim();
-                if (string.IsNullOrWhiteSpace(period) || string.IsNullOrWhiteSpace(raw)) continue;
-                if (!DateTime.TryParseExact(period, "MMM yyyy", CultureInfo.InvariantCulture, DateTimeStyles.None, out var dt))
-                    continue;
-                if (!decimal.TryParse(raw, NumberStyles.Any, CultureInfo.InvariantCulture, out var val))
-                    continue;
-                var date = DateOnly.FromDateTime(dt);
-                if (existing.Contains(date)) continue;
-                // Source values are in thousands.
-                rows.Add(new MarketValue {Date = date, Value = val * 1000m });
-            }
-            scope.AddRange(rows);
-            int cc = await scope.SaveChangesAsync();
-            await ShowMessage(cc);
-        }
-        //catch (Exception ex)
-        //{
-        //    logger.LogError(ex, "ImportMarketValues failed");
-        //    results.Errors.Add(ex.Message);
-        //    results.Success = false;
-        //    StateHasChanged();
-        //    await Task.Delay(8000);
-        //    results = new();
-        //    StateHasChanged();
-        //}
     }
     private async Task ShowMessage(int cc)
     {
