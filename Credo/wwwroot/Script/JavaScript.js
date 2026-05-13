@@ -244,31 +244,36 @@ function buildChart(canvasId, labels, rawData, rawSpy, dataLabel, pct, rawTrades
         _rebaseCanvas = null;
     }
     if (enableRebaseClick) {
-        canvas.style.cursor = pct ? 'crosshair' : 'default';
-        if (pct) {
-            _rebaseHandler = e => {
-                const rect = canvas.getBoundingClientRect();
-                const x = e.clientX - rect.left;
-                const ca = _marketChart.chartArea;
-                if (x < ca.left || x > ca.right) return;
-                const fraction = (x - ca.left) / (ca.right - ca.left);
-                const localIdx = Math.max(0, Math.min(Math.round(fraction * (labels.length - 1)), labels.length - 1));
-                if (localIdx === 0) return;
-                _displayOffset += localIdx;
-                const p = _chartParams;
-                const s = _displayOffset;
-                buildChart(p.canvasId,
-                    p.labels.slice(s),
-                    p.data.slice(s),
-                    p.spyData ? p.spyData.slice(s) : p.spyData,
-                    p.dataLabel, _chartPct,
-                    p.tradeData ? p.tradeData.slice(s) : p.tradeData,
-                    p.sellTradeData ? p.sellTradeData.slice(s) : p.sellTradeData,
-                    true);
-            };
-            _rebaseCanvas = canvas;
-            canvas.addEventListener('click', _rebaseHandler);
-        }
+        // Click anywhere on the plot area to make that date the new x-axis start.
+        // Mode (Percentage/Price) is preserved — only the toggle button changes mode.
+        canvas.style.cursor = 'crosshair';
+        canvas.onclick = null;
+        _rebaseHandler = e => {
+            if (!_marketChart) return;
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const ca = _marketChart.chartArea;
+            if (x < ca.left || x > ca.right) return;
+            const p = _chartParams;
+            if (!p) return;
+            const remaining = p.labels.length - _displayOffset;
+            if (remaining <= 1) return;
+            const fraction = (x - ca.left) / (ca.right - ca.left);
+            const localIdx = Math.max(0, Math.min(Math.round(fraction * (remaining - 1)), remaining - 1));
+            if (localIdx === 0) return;
+            _displayOffset += localIdx;
+            const s = _displayOffset;
+            buildChart(p.canvasId,
+                p.labels.slice(s),
+                p.data.slice(s),
+                p.spyData ? p.spyData.slice(s) : p.spyData,
+                p.dataLabel, _chartPct,
+                p.tradeData ? p.tradeData.slice(s) : p.tradeData,
+                p.sellTradeData ? p.sellTradeData.slice(s) : p.sellTradeData,
+                true);
+        };
+        _rebaseCanvas = canvas;
+        canvas.addEventListener('click', _rebaseHandler);
     } else {
         canvas.style.cursor = isSecurity ? 'pointer' : 'default';
         canvas.onclick = isSecurity ? () => {
