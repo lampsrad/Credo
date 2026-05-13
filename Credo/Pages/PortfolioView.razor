@@ -15,7 +15,7 @@
 
         <button type="button" class="btn-refresh"
                 @onclick="RefreshAsync" disabled="@isRefreshing"
-                title="Refresh prices" aria-label="Refresh prices">
+                title="Update Securities from Yahoo; then Updates Portfolio" aria-label="Refresh prices">
             @(isRefreshing ? "⟳ Refreshing…" : "⟳ Refresh")
         </button>
         @if (lastUpdated is not null)
