@@ -31,7 +31,6 @@
                         }
                     </th>
                     <th>Curr</th>
-                    <th title="Red if Price < Fifty day moving average; Green if Price > 50DMA">50DMA</th>
                     <th>Price</th>
                     <th @onclick="@(() => SortData("Change"))" style="cursor:pointer" title="Change from Last Close">
                         Change @if (sortColumn == "Change") {
@@ -59,7 +58,7 @@
             <span>@(sortAscending ? "▲" : "▼")</span>
         }
     </th>
-    <th title="S&P 500 annualized return (SPY CAGR) since first buy date — benchmark for XIRR">SP500</th>
+    <th title="Annualized return (CAGR) of S&P 500 since first buy date of Security to benchmark against.">SP500</th>
 <th title="Annualized Return after Cost of Money was taken in consideration and NPV=0. Includes Dividends and Interest; No Selling of Shares Considered; Nothing if < 1 year">XIRRNS</th>
 </tr>
 </thead>
