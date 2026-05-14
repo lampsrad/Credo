@@ -174,8 +174,7 @@ public class UpdateService
     private static async Task FetchTickerHistoryAsync(Ticker ticker, YahooQuotes yahoo,
      HashSet<(string, DateOnly)> existingKeys, List<Models.History> toAdd)
     {
-        if (ticker.Symbol!.EndsWith("=X")) return;
-            var result = await yahoo.GetHistoryAsync(ticker.Symbol!);
+                var result = await yahoo.GetHistoryAsync(ticker.Symbol!);
             if (!result.HasValue) return;
 
             var ticks = result.Value.Ticks
@@ -187,11 +186,16 @@ public class UpdateService
                 })
                 .ToList();
 
-            for (int i = 0; i < ticks.Count; i++)
+            foreach (var current in ticks)
             {
-                var current = ticks[i];
                 if (!existingKeys.Add((ticker.Symbol!, current.Date)))
                     continue;
+                toAdd.Add(new Models.History
+                {
+                    Symbol = ticker.Symbol,
+                    Date = current.Date,
+                    Price = (decimal?)current.Close
+                });
             }
     }
 

@@ -66,7 +66,7 @@ function buildChart(canvasId, labels, rawData, rawSpy, dataLabel, pct, rawTrades
         return arr.map(v => v != null ? +((v / b - 1) * 100).toFixed(2) : null);
     };
     if (pct) {
-        plotData = pctFromBase(rawData, null);
+        plotData = pctFromBase(rawData, costBase);
         plotSpy = rawSpy ? pctFromBase(rawSpy, null) : rawSpy;
         leftLabel = (dataLabel || 'Portfolio') + ' (% change)';
         rightLabel = 'S&P 500 (% change)';
@@ -354,20 +354,20 @@ window.renderMarketValueChart = (canvasId, labels, data, spyData, dataLabel, tra
     buildChart(canvasId, labels, data, spyData, dataLabel, false, tradeData, sellTradeData);
 };
 
-window.renderSecurityChart = (canvasId, labels, data, spyData, dataLabel, tradeData, sellTradeData, startPct) => {
+window.renderSecurityChart = (canvasId, labels, data, spyData, dataLabel, tradeData, sellTradeData, startPct, costBase = null) => {
     _chartPct = startPct ?? false;
     _displayOffset = 0;
     _show50ma = false;
     _show200ma = false;
-    _chartParams = { canvasId, labels, data, spyData, dataLabel, tradeData, sellTradeData };
-    buildChart(canvasId, labels, data, spyData, dataLabel, _chartPct, tradeData, sellTradeData, true);
+    _chartParams = { canvasId, labels, data, spyData, dataLabel, tradeData, sellTradeData, costBase };
+    buildChart(canvasId, labels, data, spyData, dataLabel, _chartPct, tradeData, sellTradeData, true, costBase);
 };
 
 window.toggleSecurityChartPct = () => {
     _chartPct = !_chartPct;
     _displayOffset = 0;
     const p = _chartParams;
-    buildChart(p.canvasId, p.labels, p.data, p.spyData, p.dataLabel, _chartPct, p.tradeData, p.sellTradeData, true);
+    buildChart(p.canvasId, p.labels, p.data, p.spyData, p.dataLabel, _chartPct, p.tradeData, p.sellTradeData, true, p.costBase ?? null);
 };
 
 function _rebuildVisible() {

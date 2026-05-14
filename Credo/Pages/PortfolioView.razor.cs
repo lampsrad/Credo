@@ -30,6 +30,7 @@ public partial class PortfolioView
     private bool IsVisibleTotal, sortAscending = true;
     private bool isRefreshing;
     private bool hasRefreshed;
+    private decimal? portfolioCostBase;
     private DateTime? lastUpdated { get; set; }
     private static readonly Dictionary<string, bool> DefaultAscending = new()
     {
@@ -128,6 +129,7 @@ public partial class PortfolioView
         var data = await graph.LoadTickerDataAsync(symbol, p.SecurityID);
         if (data is null) return;
         securityChart = data with { Title = p.Security_Description };
+        portfolioCostBase = null;
         chartWidth = await jsr.InvokeAsync<int>("getViewportChartWidth");
         showChart = true;
     }
@@ -136,6 +138,7 @@ public partial class PortfolioView
         var data = await graph.LoadTickerDataAsync("Portfolio", null);
         if (data is null) return;
         securityChart = data with { Title = "Portfolio" };
+        portfolioCostBase = 1_339_055m;
         chartWidth = await jsr.InvokeAsync<int>("getViewportChartWidth");
         showChart = true;
     }
@@ -143,6 +146,7 @@ public partial class PortfolioView
     {
         showChart = false;
         securityChart = null;
+        portfolioCostBase = null;
     }
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {

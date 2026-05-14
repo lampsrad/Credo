@@ -143,7 +143,7 @@
                                 @FormatSignedPct2(p.security?.ChangePercent)
                             </td>
 
-                            <td class="@(hasRefreshed && p.Market_Value > 0 ? (p.Market_Value > p.Cost ? "text-success" : "text-danger") : "")">
+                            <td>
                                 @if (hasRefreshed && p.Market_Value > 0)
                                 {
                                     @string.Format(CultureInfo.InvariantCulture, "${0:N2}", p.Market_Value)
@@ -242,7 +242,7 @@
 
 @if (showChart && securityChart is not null)
 {
-    <ChartModal Chart="securityChart" OnClose="CloseChart" Width="chartWidth" />
+    <ChartModal Chart="securityChart" OnClose="CloseChart" Width="chartWidth" CostBase="portfolioCostBase" />
 }
 
 <div Id="Securities" class="context-menu" @onmouseleave="ContextMenuHide" style="display:none; position:absolute;">

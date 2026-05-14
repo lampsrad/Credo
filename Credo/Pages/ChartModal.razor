@@ -26,6 +26,7 @@
     [Parameter] public ChartData? Chart { get; set; }
     [Parameter] public EventCallback OnClose { get; set; }
     [Parameter] public int Width { get; set; }
+    [Parameter] public decimal? CostBase { get; set; }
 
     private string range = "Percentage";
     private ChartData? visibleChart;
@@ -75,7 +76,7 @@
             chartRendered = true;
             await jsr.InvokeVoidAsync("renderSecurityChart", "chartModalCanvas",
                 visibleChart.Labels, visibleChart.Data, visibleChart.SpyData,
-                visibleChart.Title, visibleChart.TradeData, visibleChart.SellTradeData, isPct);
+                visibleChart.Title, visibleChart.TradeData, visibleChart.SellTradeData, isPct, CostBase);
         }
     }
 }

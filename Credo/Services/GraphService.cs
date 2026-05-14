@@ -37,14 +37,11 @@ public class GraphService(Repo repo)
     {
         var historyRows = await repo.GetEntitiesNTAsync<History>(h => h.Symbol == symbol, h => h.Date);
         if (historyRows.Count == 0) return null;
-
         var labels = historyRows.Select(h => h.Date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)).ToArray();
         var data = historyRows.Select(h => h.Price ?? 0m).ToArray();
-
         var spyRows = await repo.GetEntitiesNTAsync<History>(h => h.Symbol == "^GSPC", h => h.Date);
         var spyDict = spyRows.ToDictionary(s => s.Date, s => s.Price);
         var spyData = historyRows.Select(h => spyDict.TryGetValue(h.Date, out var p) ? p : null).ToArray();
-
         var buyTrades = secId is null
             ? new List<Transaction>()
             : await repo.GetEntitiesNTAsync<Transaction>(
@@ -55,24 +52,20 @@ public class GraphService(Repo repo)
             : await repo.GetEntitiesNTAsync<Transaction>(
                 t => t.SecurityID == secId && (t.TranCode == "SL" || t.TranCode == "LO"),
                 t => t.TradeDate);
-
         var buyMarks = new decimal?[historyRows.Count];
         foreach (var t in buyTrades)
         {
             int idx = FindDateIndex(historyRows, t.TradeDate);
             buyMarks[idx] = historyRows[idx].Price ?? data[idx];
         }
-
         var sellMarks = new decimal?[historyRows.Count];
         foreach (var t in sellTrades)
         {
             int idx = FindDateIndex(historyRows, t.TradeDate);
             sellMarks[idx] = historyRows[idx].Price ?? data[idx];
         }
-
         return new ChartData(labels, data, spyData, buyMarks, sellMarks, null);
     }
-
     public ChartData SliceByRange(ChartData full, string range)
     {
         bool isDaily = full.Labels.Length > 0 && full.Labels[0].Length == 10;
