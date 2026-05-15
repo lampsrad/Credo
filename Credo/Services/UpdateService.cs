@@ -174,7 +174,9 @@ public class UpdateService
     private static async Task FetchTickerHistoryAsync(Ticker ticker, YahooQuotes yahoo,
      HashSet<(string, DateOnly)> existingKeys, List<Models.History> toAdd)
     {
-                var result = await yahoo.GetHistoryAsync(ticker.Symbol!);
+        try
+        {
+            var result = await yahoo.GetHistoryAsync(ticker.Symbol!);
             if (!result.HasValue) return;
 
             var ticks = result.Value.Ticks
@@ -197,6 +199,8 @@ public class UpdateService
                     Price = (decimal?)current.Close
                 });
             }
+        }
+        catch (ArgumentException) { /* skip tickers with symbols Yahoo Finance rejects */ }
     }
 
     private static string? Cash(string? secname)
