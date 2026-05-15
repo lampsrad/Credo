@@ -147,7 +147,7 @@ public class UpdateService
 
         var lastDate = existingHistory.Count > 0
             ? existingHistory.Max(h => h.Date)
-            : DateOnly.Parse("2015-01-01");
+            : DateOnly.Parse("2016-08-01");
 
         var yahoo = new YahooQuotesBuilder()
             .WithHistoryStartDate(NodaTime.Instant.FromUtc(lastDate.Year, lastDate.Month, lastDate.Day, 0, 0))

@@ -108,4 +108,12 @@ public partial class Menu
         }
         await scope.SaveChangesAsync();
     }
+    private async Task Test()
+    {
+        DateOnly start = new DateOnly(2016, 09, 11);
+        var scope = repo.BeginScope();
+        var todelete = await scope.GetEntitiesAsync<History>(h => h.Date < start);
+        scope.RemoveRange(todelete);   
+       int cc = await scope.SaveChangesAsync(); 
+    }
 }
