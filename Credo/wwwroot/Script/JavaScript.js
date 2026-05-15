@@ -124,7 +124,7 @@ function buildChart(canvasId, labels, rawData, rawSpy, dataLabel, pct, rawTrades
             spanGaps: false
         });
     }
-    if (plotSpy && plotSpy.length) {
+    if (plotSpy && plotSpy.length && (pct || !isSecurity)) {
         datasets.push({
             label: rightLabel,
             data: plotSpy,
@@ -395,3 +395,4 @@ window.toggleMA200 = () => {
     _rebuildVisible();
     return _show200ma;
 };
+

@@ -16,11 +16,6 @@ public partial class PortfolioView
     [Inject] IJSRuntime jsr { get; set; } = default!;
 
     IList<Portfolio>? Portfs { get; set; }
-    private ChartData? portfolioChart;
-    private ChartData? fullChart;
-    private ChartData? visibleChart;
-    private string chartRange = "all";
-    private bool chartRendered;
     private Portfolio? selectedRow;
     private ChartData? securityChart;
     private bool showChart;
@@ -32,6 +27,20 @@ public partial class PortfolioView
     private bool hasRefreshed;
     private decimal? portfolioCostBase;
     private DateTime? lastUpdated { get; set; }
+    private HashSet<int> checkedRows = new();
+
+    private void ToggleChecked(int id)
+    {
+        if (!checkedRows.Add(id))
+            checkedRows.Remove(id);
+    }
+
+    private HashSet<int> GetExcludedSecurityIds() =>
+        Items
+            .Where(p => checkedRows.Contains(p.Id) && p.SecurityID.HasValue)
+            .Select(p => p.SecurityID!.Value)
+            .ToHashSet();
+
     private static readonly Dictionary<string, bool> DefaultAscending = new()
     {
         ["Security"] = true,
@@ -97,12 +106,6 @@ public partial class PortfolioView
         {
             Portfs = await repo.GetEntitiesNTAsync<Portfolio>();
             lastUpdated = DateTime.Now;
-            portfolioChart = await graph.LoadPortfolioDataAsync();
-            if (portfolioChart is not null)
-            {
-                fullChart = portfolioChart;
-                visibleChart = portfolioChart;
-            }
             StateHasChanged();
         }
         finally
@@ -111,13 +114,6 @@ public partial class PortfolioView
         }
     }
 
-    private void SetChartRange(string range)
-    {
-        chartRange = range;
-        if (fullChart is null) return;
-        visibleChart = graph.SliceByRange(fullChart, range);
-        chartRendered = false;
-    }
     private void RowClickedAsync(Portfolio p)
     {
         selectedRow = p;
@@ -135,7 +131,10 @@ public partial class PortfolioView
     }
     private async Task ShowPortfolioChartAsync()
     {
-        var data = await graph.LoadTickerDataAsync("Portfolio", null);
+        var excludedIds = GetExcludedSecurityIds();
+        var data = excludedIds.Count == 0
+            ? await graph.LoadTickerDataAsync("Portfolio", null)
+            : await graph.ComputePortfolioChartAsync(excludedIds);
         if (data is null) return;
         securityChart = data with { Title = "Portfolio" };
         portfolioCostBase = 1_339_055m;
@@ -147,16 +146,6 @@ public partial class PortfolioView
         showChart = false;
         securityChart = null;
         portfolioCostBase = null;
-    }
-    protected override async Task OnAfterRenderAsync(bool firstRender)
-    {
-        if (visibleChart is not null && !chartRendered)
-        {
-            chartRendered = true;
-            await jsr.InvokeVoidAsync("renderMarketValueChart", "marketValueChart",
-                visibleChart.Labels, visibleChart.Data, visibleChart.SpyData,
-                visibleChart.Title, visibleChart.TradeData, visibleChart.SellTradeData, 1_339_055m);
-        }
     }
     private static string PctClass(decimal? v) =>
     v is null ? "" : (v > 0 ? "text-success" : (v < 0 ? "text-danger" : ""));
@@ -180,14 +169,8 @@ public partial class PortfolioView
     private void ToggleColumns()
     {
         hasRefreshed = !hasRefreshed;
-        if (hasRefreshed && portfolioChart is not null)
-        {
+        if (hasRefreshed)
             selectedRow = null;
-            fullChart = portfolioChart;
-            visibleChart = portfolioChart;
-            chartRange = "all";
-        }
-        chartRendered = false;
     }
     private void SortData(string? column = null)
     {

@@ -481,3 +481,35 @@ tr.row-selected td { background-color: #2a3a2a; }
 }
 
 .chart-btn:hover { opacity: 1; }
+
+.row-checkbox {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 1.1rem;
+    height: 1.1rem;
+    background: #3a3a3a;
+    border: 1px solid #999;
+    border-radius: 3px;
+    cursor: pointer;
+    vertical-align: middle;
+    position: relative;
+}
+
+.row-checkbox:checked {
+    background: #555;
+    border-color: #bbb;
+}
+
+.row-checkbox:checked::after {
+    content: "✓";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: #fff;
+    font-size: 0.75rem;
+    line-height: 1;
+}
+
+.row-checkbox:hover { border-color: #ccc; }
+.row-checkbox:focus-visible { outline: 2px solid #258cfb; outline-offset: 1px; }

@@ -12,6 +12,7 @@ public record ChartData(
     string? Title
 );
 
+
 public class GraphService(Repo repo)
 {
     public async Task<ChartData?> LoadPortfolioDataAsync()
@@ -66,6 +67,102 @@ public class GraphService(Repo repo)
         }
         return new ChartData(labels, data, spyData, buyMarks, sellMarks, null);
     }
+    public async Task<ChartData?> ComputePortfolioChartAsync(HashSet<int>? excludedSecurityIds = null)
+    {
+        var securities = await repo.GetEntitiesNTAsync<Security>(null);
+        if (securities.Count == 0) return null;
+
+        var firstBuy = securities
+            .SelectMany(s => s.Transactions)
+            .Where(t => IsBuy(t.TranCode))
+            .Select(t => (DateOnly?)t.TradeDate)
+            .Min();
+        if (firstBuy is null) return null;
+
+        var included = excludedSecurityIds is { Count: > 0 }
+            ? securities.Where(s => !excludedSecurityIds.Contains(s.Id)).ToList()
+            : securities;
+
+        var secSymbols = included
+            .Where(s => s.ticker?.Symbol is not null)
+            .Select(s => s.ticker!.Symbol!)
+            .Distinct().ToList();
+        var fxSymbols = included
+            .Where(s => !string.IsNullOrEmpty(s.Currency) && s.Currency != "USD=X")
+            .Select(s => s.Currency!)
+            .Distinct().ToList();
+        var allSymbols = secSymbols.Concat(fxSymbols).Distinct().ToList();
+
+        var allHistory = await repo.GetEntitiesNTAsync<History>(
+            h => h.Symbol != null && allSymbols.Contains(h.Symbol), h => h.Date);
+        if (allHistory.Count == 0) return null;
+
+        var bySymbol = allHistory
+            .GroupBy(h => h.Symbol!)
+            .ToDictionary(g => g.Key, g => g.OrderBy(h => h.Date).ToList());
+
+        var today = DateOnly.FromDateTime(DateTime.Today);
+        var dates = allHistory
+            .Where(h => h.Date >= firstBuy.Value && h.Date <= today)
+            .Select(h => h.Date)
+            .Distinct().OrderBy(d => d).ToList();
+
+        var secTrans = included.ToDictionary(
+            s => s.Id,
+            s => s.Transactions.OrderBy(t => t.TradeDate).ToList());
+
+        var labels = new List<string>(dates.Count);
+        var data   = new List<decimal>(dates.Count);
+
+        foreach (var date in dates)
+        {
+            decimal total = 0m;
+            foreach (var sec in included)
+            {
+                var sym = sec.ticker?.Symbol;
+                if (sym is null) continue;
+
+                int qty = 0;
+                foreach (var t in secTrans[sec.Id])
+                {
+                    if (t.TradeDate > date) break;
+                    if (IsBuy(t.TranCode))  qty += t.Quantity ?? 0;
+                    else if (IsSell(t.TranCode)) qty -= t.Quantity ?? 0;
+                }
+                if (qty <= 0) continue;
+
+                if (!bySymbol.TryGetValue(sym, out var hist)) continue;
+                var priceRow = LastOnOrBefore(hist, date);
+                if (priceRow?.Price is null) continue;
+                var price = priceRow.Price.Value;
+
+                decimal fx = 1m;
+                var cur = sec.Currency;
+                if (!string.IsNullOrEmpty(cur) && cur != "USD=X")
+                {
+                    if (!bySymbol.TryGetValue(cur, out var fxHist)) continue;
+                    var fxRow = LastOnOrBefore(fxHist, date);
+                    if (fxRow?.Price is null) continue;
+                    fx = fxRow.Price.Value;
+                }
+
+                total += qty * price * fx;
+            }
+            labels.Add(date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture));
+            data.Add(Math.Round(total, 2));
+        }
+
+        var spyRows = await repo.GetEntitiesNTAsync<History>(x => x.Symbol == "^GSPC", s => s.Date);
+        decimal?[]? spyData = null;
+        if (spyRows.Count > 0)
+        {
+            var spyDict = spyRows.ToDictionary(s => s.Date, s => s.Price);
+            spyData = dates.Select(d => spyDict.TryGetValue(d, out var p) ? p : null).ToArray();
+        }
+
+        return new ChartData(labels.ToArray(), data.ToArray(), spyData, null, null, null);
+    }
+
     public ChartData SliceByRange(ChartData full, string range)
     {
         bool isDaily = full.Labels.Length > 0 && full.Labels[0].Length == 10;
