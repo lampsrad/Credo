@@ -24,9 +24,9 @@
                 Updated @FormatRelative(lastUpdated.Value)
             </span>
         }
-        <button type="button" class="btn-refresh btn-refresh-mini"
+        <button name="Port" type="button" class="btn-refresh btn-refresh-mini"
                 @onclick="ShowPortfolioChartAsync"
-                title="Show portfolio market value chart">📈</button>
+                title="Portfolio chart">📈</button>
         <button type="button" class="btn-refresh btn-refresh-mini"
                 @onclick="ToggleColumns"
                 title="@(hasRefreshed ? "Hide $ columns" : "Show $ columns")"
@@ -130,11 +130,15 @@
                     {
                         <tr @key="p.Id" class="text-end @(selectedRow == p ? "row-selected" : "")"
                             @onclick="@(() => RowClickedAsync(p))">
-                            <td>@(p.Quantity?.ToString("N0", CultureInfo.InvariantCulture) ?? "—")</td>
-                            <td class="text-start">
+                            <td style="display:flex; align-items:center; justify-content:space-between; gap:0.25rem;">
                                 <button class="chart-btn" title="Show chart"
                                         @onclick="@(() => ShowChartAsync(p))"
-                                        @onclick:stopPropagation>📈</button>
+                                        @onclick:stopPropagation>
+                                    📈
+                                </button>
+                                <span>@(p.Quantity?.ToString("N0", CultureInfo.InvariantCulture) ?? "—")</span>
+                            </td>
+                            <td class="text-start">
                                 @p.Security_Description
                             </td>
                             <td class="text-start">@p.Currency</td>
