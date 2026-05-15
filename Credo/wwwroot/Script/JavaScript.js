@@ -346,12 +346,12 @@ function buildChart(canvasId, labels, rawData, rawSpy, dataLabel, pct, rawTrades
 window.getElementWidth = id => document.getElementById(id)?.offsetWidth ?? 0;
 window.getViewportChartWidth = () => Math.min(window.innerWidth - 80, 1400);
 
-window.renderMarketValueChart = (canvasId, labels, data, spyData, dataLabel, tradeData, sellTradeData) => {
-    _chartPct = false;
+window.renderMarketValueChart = (canvasId, labels, data, spyData, dataLabel, tradeData, sellTradeData, costBase = null) => {
+    _chartPct = costBase != null;
     _show50ma = false;
     _show200ma = false;
-    _chartParams = { canvasId, labels, data, spyData, dataLabel, tradeData, sellTradeData };
-    buildChart(canvasId, labels, data, spyData, dataLabel, false, tradeData, sellTradeData);
+    _chartParams = { canvasId, labels, data, spyData, dataLabel, tradeData, sellTradeData, costBase };
+    buildChart(canvasId, labels, data, spyData, dataLabel, _chartPct, tradeData, sellTradeData, false, costBase);
 };
 
 window.renderSecurityChart = (canvasId, labels, data, spyData, dataLabel, tradeData, sellTradeData, startPct, costBase = null) => {

@@ -155,7 +155,7 @@ public partial class PortfolioView
             chartRendered = true;
             await jsr.InvokeVoidAsync("renderMarketValueChart", "marketValueChart",
                 visibleChart.Labels, visibleChart.Data, visibleChart.SpyData,
-                visibleChart.Title, visibleChart.TradeData, visibleChart.SellTradeData);
+                visibleChart.Title, visibleChart.TradeData, visibleChart.SellTradeData, 1_339_055m);
         }
     }
     private static string PctClass(decimal? v) =>
