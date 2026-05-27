@@ -15,7 +15,7 @@
 
         <button type="button" class="btn-refresh"
                 @onclick="RefreshAsync" disabled="@isRefreshing"
-                title="Update Securities from Yahoo; then Updates Portfolio" aria-label="Refresh prices">
+                title="Fetches live prices from Yahoo; updates Securities, FX rates, Portfolio values, IRR, and back-fills any missing History rows for all securities and watchlist symbols; then reloads the Portfolio view" aria-label="Refresh prices">
             @(isRefreshing ? "⟳ Refreshing…" : "⟳ Refresh")
         </button>
         @if (lastUpdated is not null)
