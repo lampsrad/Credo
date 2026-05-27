@@ -1,0 +1,99 @@
+@page "/watchlist"
+@using Credo.Models
+@using System.Globalization
+
+<div class="d-flex justify-content-center align-items-center gap-2">
+    <h4 class="m-0">Watchlist</h4>
+</div>
+
+<div style="width:fit-content; max-width:100%; margin:0 auto;">
+
+    <div class="portfolio-toolbar" style="margin-bottom:0.75rem;">
+        <input type="text" class="filter-input" placeholder="Symbol (e.g. META)"
+               style="width:8rem;"
+               @bind="newSymbol" @bind:event="oninput"
+               @onkeydown="@(e => { if (e.Key == "Enter") return AddAsync(); return Task.CompletedTask; })" />
+        <input type="text" class="filter-input" placeholder="Name (optional)"
+               style="width:14rem;"
+               @bind="newName" @bind:event="oninput"
+               @onkeydown="@(e => { if (e.Key == "Enter") return AddAsync(); return Task.CompletedTask; })" />
+        <button class="btn-refresh btn-refresh-mini"
+                @onclick="AddAsync"
+                disabled="@(string.IsNullOrWhiteSpace(newSymbol) || isAdding)"
+                title="Add symbol to watchlist">
+            @if (isAdding) { <span class="spin">⟳</span> } else { <span>＋ Add</span> }
+        </button>
+        <button class="btn-refresh btn-refresh-mini"
+                @onclick="UpdateHistoryAsync"
+                disabled="@isUpdating"
+                title="Fetch latest history from Yahoo Finance for all watchlist symbols">
+            @if (isUpdating) { <span class="spin">⟳</span> } else { <span>⟳ Update History</span> }
+        </button>
+        @if (addError is not null)
+        {
+            <span class="last-updated" style="color:#e05a7a">@addError</span>
+        }
+    </div>
+
+    @if (Items is null)
+    {
+        <p><em>Loading…</em></p>
+    }
+    else if (Items.Count == 0)
+    {
+        <div class="empty-state">
+            <p>No symbols on the watchlist yet. Enter a Yahoo Finance ticker above and click <strong>＋ Add</strong>.</p>
+        </div>
+    }
+    else
+    {
+        <div class="scroll-table">
+            <table id="members">
+                <thead>
+                    <tr>
+                        <th title="Yahoo Finance ticker symbol">Symbol</th>
+                        <th>Name</th>
+                        <th class="text-end" title="Most recent closing price in the History table">Latest Price</th>
+                        <th class="text-end" title="Date of latest price row">As Of</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var item in Items)
+                    {
+                        (decimal? Price, DateOnly Date) px = default;
+                        var hasPx = item.Symbol != null && LatestPrices.TryGetValue(item.Symbol!, out px);
+                        <tr @key="item.Id">
+                            <td>
+                                <button class="chart-btn" title="Show chart"
+                                        @onclick="@(() => ShowChartAsync(item))"
+                                        @onclick:stopPropagation>📈</button>
+                                @item.Symbol
+                            </td>
+                            <td>@item.Name</td>
+                            <td class="text-end">
+                                @(hasPx && px.Price.HasValue
+                                    ? string.Format(CultureInfo.InvariantCulture, "{0:N2}", px.Price)
+                                    : "—")
+                            </td>
+                            <td class="text-end" style="font-size:0.8rem; color:#9a9a9a;">
+                                @(hasPx ? px.Date.ToString("yyyy-MM-dd") : "—")
+                            </td>
+                            <td class="text-center">
+                                <button class="btn-refresh btn-refresh-mini"
+                                        style="background:#6b2020; border-color:#6b2020;"
+                                        @onclick="@(() => RemoveAsync(item))"
+                                        title="Remove @item.Symbol from watchlist">✕</button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>
+
+@if (showChart && securityChart is not null)
+{
+    <ChartModal Chart="securityChart" OnClose="CloseChart" Width="chartWidth" />
+}

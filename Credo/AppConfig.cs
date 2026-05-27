@@ -15,16 +15,13 @@ public class AppConfig
     public string MachineName { get; }
     public decimal? MarketValue { get; set; }
 
-
-
     public AppConfig(IConfiguration configuration)
     {
         MachineName = Environment.MachineName;
         BackupPath = ExpandPath(configuration["Paths:Backup"]);
         DownloadsPath = ExpandPath(configuration["Paths:Downloads"]);
-        BrowserPath = ExpandPath(configuration["Paths:Browser"]);
+        BrowserPath =  MachineName=="ROG"? ExpandPath(configuration["Paths:BrowserROG"]) : ExpandPath(configuration["Paths:BrowserXPS"]);
     }
-
     public void StartBrowser(string url)
     {
         if (string.IsNullOrWhiteSpace(BrowserPath) || !File.Exists(BrowserPath))

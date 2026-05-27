@@ -1,5 +1,7 @@
 using Credo.Models;
 using System.Globalization;
+using YahooQuotesApi;
+using History = Credo.Models.History;
 
 namespace Credo.Services;
 
@@ -24,14 +26,73 @@ public class GraphService(Repo repo)
         var data = mvRows.Select(h => h.Price ?? 0m).ToArray();
 
         var spyRows = await repo.GetEntitiesNTAsync<History>(x => x.Symbol == "^GSPC", s => s.Date);
-        decimal?[]? spyData = null;
-        if (spyRows.Count > 0)
-        {
-            var spyDict = spyRows.ToDictionary(s => s.Date, s => s.Price);
-            spyData = mvRows.Select(h => spyDict.TryGetValue(h.Date, out var p) ? p : null).ToArray();
-        }
+        var spyData = AlignSpy(spyRows, mvRows.Select(h => h.Date));
 
         return new ChartData(labels, data, spyData, null, null, null);
+    }
+
+    /// <summary>
+    /// Returns ChartData for any symbol. Fast path: reads from the local History table if rows
+    /// exist (watchlist or regular security). Slow path: live Yahoo fetch for unknown symbols.
+    /// </summary>
+    public async Task<ChartData?> LoadAdhocTickerDataAsync(string symbol)
+    {
+        if (string.IsNullOrWhiteSpace(symbol)) return null;
+
+        // ── Fast path: symbol already in History table ───────────────────────────
+        var historyRows = await repo.GetEntitiesNTAsync<History>(h => h.Symbol == symbol, h => h.Date);
+        if (historyRows.Count > 0)
+        {
+            var labelsDb = historyRows
+                .Select(h => h.Date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture))
+                .ToArray();
+            var dataDb = historyRows.Select(h => h.Price ?? 0m).ToArray();
+            var spyRowsDb = await repo.GetEntitiesNTAsync<History>(h => h.Symbol == "^GSPC", h => h.Date);
+            var spyDataDb = AlignSpy(spyRowsDb, historyRows.Select(h => h.Date));
+            // Prefer a saved watchlist name; fall back to bare symbol
+            var watchEntry = await repo.GetEntityNTAsync<Watchlist>(w => w.Symbol == symbol);
+            var titleDb = watchEntry?.Name is not null ? $"{watchEntry.Name} ({symbol})" : symbol;
+            return new ChartData(labelsDb, dataDb, spyDataDb, null, null, titleDb);
+        }
+
+        // ── Slow path: live Yahoo fetch (symbol not yet in DB) ───────────────────
+        var startDate = DateTime.Today.AddYears(-5);
+        var start = NodaTime.Instant.FromUtc(startDate.Year, startDate.Month, startDate.Day, 0, 0);
+        var yahoo = new YahooQuotesBuilder().WithHistoryStartDate(start).Build();
+
+        IList<(DateOnly Date, decimal Close)> ticks;
+        try
+        {
+            var result = await yahoo.GetHistoryAsync(symbol);
+            if (!result.HasValue) return null;
+            ticks = result.Value.Ticks
+                .OrderBy(t => t.Date)
+                .Select(t => (Date: DateOnly.FromDateTime(t.Date.ToDateTimeUtc()), Close: (decimal)t.Close))
+                .ToList();
+        }
+        catch (ArgumentException) { return null; }
+        if (ticks.Count == 0) return null;
+
+        var labels = ticks.Select(t => t.Date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)).ToArray();
+        var data   = ticks.Select(t => t.Close).ToArray();
+
+        var spyRows = await repo.GetEntitiesNTAsync<History>(h => h.Symbol == "^GSPC", h => h.Date);
+        var spyData = AlignSpy(spyRows, ticks.Select(t => t.Date));
+
+        string title = symbol;
+        try
+        {
+            var snapshots = await new YahooQuotesBuilder().Build().GetSnapshotAsync(new[] { symbol });
+            if (snapshots.TryGetValue(symbol, out var snap) && snap is not null)
+            {
+                var name = snap.LongName ?? snap.ShortName;
+                if (!string.IsNullOrWhiteSpace(name))
+                    title = $"{name} ({symbol})";
+            }
+        }
+        catch { /* fall back to symbol */ }
+
+        return new ChartData(labels, data, spyData, null, null, title);
     }
 
     public async Task<ChartData?> LoadTickerDataAsync(string symbol, int? secId)
@@ -41,8 +102,7 @@ public class GraphService(Repo repo)
         var labels = historyRows.Select(h => h.Date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)).ToArray();
         var data = historyRows.Select(h => h.Price ?? 0m).ToArray();
         var spyRows = await repo.GetEntitiesNTAsync<History>(h => h.Symbol == "^GSPC", h => h.Date);
-        var spyDict = spyRows.ToDictionary(s => s.Date, s => s.Price);
-        var spyData = historyRows.Select(h => spyDict.TryGetValue(h.Date, out var p) ? p : null).ToArray();
+        var spyData = AlignSpy(spyRows, historyRows.Select(h => h.Date));
         var buyTrades = secId is null
             ? new List<Transaction>()
             : await repo.GetEntitiesNTAsync<Transaction>(
@@ -153,12 +213,7 @@ public class GraphService(Repo repo)
         }
 
         var spyRows = await repo.GetEntitiesNTAsync<History>(x => x.Symbol == "^GSPC", s => s.Date);
-        decimal?[]? spyData = null;
-        if (spyRows.Count > 0)
-        {
-            var spyDict = spyRows.ToDictionary(s => s.Date, s => s.Price);
-            spyData = dates.Select(d => spyDict.TryGetValue(d, out var p) ? p : null).ToArray();
-        }
+        var spyData = AlignSpy(spyRows, dates);
 
         return new ChartData(labels.ToArray(), data.ToArray(), spyData, null, null, null);
     }
@@ -293,6 +348,30 @@ public class GraphService(Repo repo)
     private static bool IsSell(string? code) =>
         string.Equals(code, "sl", StringComparison.OrdinalIgnoreCase) ||
         string.Equals(code, "lo", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Aligns SPY (^GSPC) history to a target date series, forward-filling missing dates
+    /// (e.g. today, before Yahoo publishes the close) with the most recent known value.
+    /// Leading dates before SPY history begins remain null.
+    /// </summary>
+    private static decimal?[]? AlignSpy(IList<History> spyRows, IEnumerable<DateOnly> targetDates)
+    {
+        if (spyRows.Count == 0) return null;
+        var sorted = spyRows.OrderBy(s => s.Date).ToList();
+        var result = new List<decimal?>();
+        int i = 0;
+        decimal? last = null;
+        foreach (var d in targetDates)
+        {
+            while (i < sorted.Count && sorted[i].Date <= d)
+            {
+                if (sorted[i].Price is not null) last = sorted[i].Price;
+                i++;
+            }
+            result.Add(last);
+        }
+        return result.ToArray();
+    }
 
     private static History? LastOnOrBefore(List<History> sortedRows, DateOnly date)
     {

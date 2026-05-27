@@ -28,8 +28,7 @@ public partial class PortfolioView
     private decimal? portfolioCostBase;
     private DateTime? lastUpdated { get; set; }
     private HashSet<int> checkedRows = new();
-
-    private void ToggleChecked(int id)
+private void ToggleChecked(int id)
     {
         if (!checkedRows.Add(id))
             checkedRows.Remove(id);

@@ -15,4 +15,5 @@ public class CredoDbContext : DbContext
     public virtual DbSet<Ticker> Tickers { get; set; }
     public virtual DbSet<Currency> Currencies { get; set; }
     public virtual DbSet<History> Histories { get; set; }
+    public virtual DbSet<Watchlist> WatchlistItems { get; set; }
 }

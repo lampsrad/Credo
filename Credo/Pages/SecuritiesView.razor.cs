@@ -156,7 +156,8 @@ public partial class SecuritiesView
     {
         var spyList = await repo.GetEntitiesNTAsync<History>(x => x.Symbol == "^GSPC");
         SpyPrices = spyList.ToDictionary(s => s.Date, s => s.Price ?? 0m);
-        Securities = await repo.GetEntitiesNTAsync<Security>(null);
+        Securities = await repo.GetEntitiesNTAsync<Security>(
+            s => s.ticker == null || s.ticker.Symbol == null || !s.ticker.Symbol.EndsWith("=X"));
         ComputeGainPerc();
         ComputeSpyPerf();
     }
@@ -164,7 +165,8 @@ public partial class SecuritiesView
     {
         await ContextMenuHide();
         await using var scope = repo.BeginScope();
-        Securities = await scope.GetEntitiesAsync<Security>();
+        Securities = await scope.GetEntitiesAsync<Security>(
+            s => s.ticker == null || s.ticker.Symbol == null || !s.ticker.Symbol.EndsWith("=X"));
         ComputeGains();
         ComputeGainPerc();
         ComputeSpyPerf();

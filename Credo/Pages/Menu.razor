@@ -41,6 +41,7 @@
                 <li><a href="tickers" title="View Tickers'">Tickers</a></li>
                 <li><a href="transactions/dp" title="View Tickers'">Fees</a></li>
                 <li><a href="expenses" title="View Expenses">Expenses</a></li>
+                <li><a href="watchlist" title="Watchlist — track symbols without adding to portfolio">Watchlist</a></li>
             </ul>
         </li>
     </ul>
@@ -49,12 +50,19 @@
         <li>
             <a class=men href="#">Update</a>
             <ul class=sub>
-                <li><a href="#" @onclick="updates.UpdateSecuritiesAsync" @onclick:preventDefault="true" title="Update Securities Price and Portfolio">Securities & Portfolio</a></li>
-                <li><a href="#" @onclick="UpdateSecuritiesXIRR" @onclick:preventDefault="true">SecuritiesXIRR</a></li>
-                <li><a href="#" @onclick="updates.UpdatePortfolioAsync" @onclick:preventDefault="true">Portfolio</a></li>
-                <li title="From YahooFinance get all the Tickers History and Save last day of Month's data in Db History table"><a href="#" @onclick="updates.UpdateHistoryAsync" @onclick:preventDefault="true">Securities History</a></li>
+                <li title="Fetches live prices from Yahoo; updates Securities, FX rates, Portfolio values, IRR, and back-fills any missing History rows for all securities and watchlist symbols"><a href="#" @onclick="updates.UpdateSecuritiesAsync" @onclick:preventDefault="true">Update All</a></li>
+                <li title="Recalculates and persists XIRR / IRR for all securities based on current transactions and prices"><a href="#" @onclick="UpdateSecuritiesXIRR" @onclick:preventDefault="true">Recalculate XIRR</a></li>
+                <li title="Recalculates Portfolio market values, gains and IRR from current Security prices — without hitting Yahoo"><a href="#" @onclick="updates.UpdatePortfolioAsync" @onclick:preventDefault="true">Recalculate Portfolio</a></li>
+                <li title="One-off rebuild: fetches full 5-year price history from Yahoo for all Securities. Use after adding new tickers or rebuilding the History table from scratch."><a href="#" @onclick="updates.UpdateHistoryAsync" @onclick:preventDefault="true">Rebuild Securities History</a></li>
+                <li title="One-off rebuild: fetches full 5-year price history from Yahoo for all Watchlist symbols. Use after adding new watchlist entries or rebuilding the History table from scratch."><a href="#" @onclick="updates.UpdateWatchlistHistoryAsync" @onclick:preventDefault="true">Rebuild Watchlist History</a></li>
               @*   <li @onclick="Test">Test</li> *@
             </ul>
+        </li>
+    </ul>
+
+    <ul>
+        <li>
+            <a class=men href="/help.html" target="_blank">Help</a>
         </li>
     </ul>
 

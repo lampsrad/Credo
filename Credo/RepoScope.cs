@@ -86,6 +86,12 @@ internal static class RepoQuery
                 .OrderBy(x => x.Date)
                 .Cast<T>();
         }
+        if (typeof(T) == typeof(Watchlist))
+        {
+            return (query as IQueryable<Watchlist>)!
+                .OrderBy(x => x.Symbol)
+                .Cast<T>();
+        }
         return query;
     }
 }

@@ -1,0 +1,1694 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CredoApp – Developer Reference</title>
+  <style>
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --surface2: #22263a;
+      --border: #2e3350;
+      --accent: #5b8af5;
+      --accent2: #4ecdc4;
+      --accent3: #f7c948;
+      --accent4: #e05a7a;
+      --accent5: #b78cf7;
+      --text: #e2e8f0;
+      --muted: #8892a4;
+      --code-bg: #12151f;
+      --radius: 8px;
+      --font: 'Segoe UI', system-ui, sans-serif;
+      --mono: 'Consolas', 'Cascadia Code', monospace;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      font-size: 15px;
+      line-height: 1.7;
+    }
+
+    /* ── Main content ── */
+    #main {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 40px 48px 80px;
+    }
+
+    /* ── Top index ── */
+    #topnav {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 18px 22px 20px;
+      margin: 24px 0 48px;
+    }
+    #topnav .topnav-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 14px;
+      flex-wrap: wrap;
+    }
+    #topnav .topnav-head h3 {
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 1.4px;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin: 0;
+    }
+    #topnav a.app-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 7px 14px;
+      border-radius: var(--radius);
+      background: linear-gradient(135deg, var(--accent), #3a6fd8);
+      color: #fff;
+      text-decoration: none;
+      font-size: 12.5px;
+      font-weight: 600;
+      transition: opacity .2s;
+    }
+    #topnav a.app-link:hover { opacity: .85; }
+
+    #topnav .toc {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+      gap: 14px 24px;
+    }
+    #topnav .toc-group .section-label {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 1.2px;
+      text-transform: uppercase;
+      color: var(--muted);
+      padding-bottom: 4px;
+      margin-bottom: 4px;
+      border-bottom: 1px solid var(--border);
+    }
+    #topnav .toc-group a {
+      display: block;
+      padding: 3px 4px;
+      border-radius: 4px;
+      color: var(--text);
+      text-decoration: none;
+      font-size: 13px;
+      transition: background .15s, color .15s;
+    }
+    #topnav .toc-group a:hover { background: var(--surface2); color: var(--accent); }
+
+    h1.page-title {
+      font-size: 34px;
+      font-weight: 800;
+      letter-spacing: -1px;
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 6px;
+    }
+    .subtitle { color: var(--muted); font-size: 15px; margin-bottom: 48px; }
+
+    section { margin-bottom: 64px; scroll-margin-top: 32px; }
+
+    h2 {
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--accent);
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 10px;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    h2 .icon { font-size: 20px; }
+    h3 {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--accent2);
+      margin: 24px 0 10px;
+    }
+    h4.sub {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--accent3);
+      margin: 18px 0 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+    }
+
+    p { color: var(--text); margin-bottom: 12px; }
+    ul.bullets, ol.numbered { margin: 8px 0 16px 24px; }
+    ul.bullets li, ol.numbered li { margin-bottom: 6px; }
+
+    /* Cards */
+    .card-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 16px;
+      margin-top: 16px;
+    }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 18px 20px;
+      transition: border-color .2s, transform .2s;
+    }
+    .card:hover { border-color: var(--accent); transform: translateY(-2px); }
+    .card h4 { font-size: 14px; font-weight: 700; color: var(--accent3); margin-bottom: 6px; }
+    .card p { font-size: 13px; color: var(--muted); margin: 0; }
+    .card .route { font-family: var(--mono); font-size: 12px; color: var(--accent2); margin-top: 8px; }
+
+    /* Badges */
+    .badge {
+      display: inline-block;
+      padding: 2px 10px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 700;
+      margin-right: 4px;
+      margin-bottom: 4px;
+    }
+    .badge-blue   { background: rgba(91,138,245,.18);  color: var(--accent);  border: 1px solid rgba(91,138,245,.35); }
+    .badge-teal   { background: rgba(78,205,196,.15);  color: var(--accent2); border: 1px solid rgba(78,205,196,.3); }
+    .badge-yellow { background: rgba(247,201,72,.15);  color: var(--accent3); border: 1px solid rgba(247,201,72,.3); }
+    .badge-red    { background: rgba(224,90,122,.15);  color: var(--accent4); border: 1px solid rgba(224,90,122,.3); }
+    .badge-purple { background: rgba(183,140,247,.15); color: var(--accent5); border: 1px solid rgba(183,140,247,.3); }
+
+    /* Tables */
+    .tbl-wrap { overflow-x: auto; margin: 16px 0 24px; border-radius: var(--radius); border: 1px solid var(--border); }
+    table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+    thead th {
+      background: var(--surface2);
+      color: var(--accent);
+      font-weight: 700;
+      padding: 10px 14px;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+    }
+    tbody tr { border-bottom: 1px solid var(--border); transition: background .12s; }
+    tbody tr:last-child { border-bottom: none; }
+    tbody tr:hover { background: var(--surface2); }
+    tbody td { padding: 9px 14px; vertical-align: top; }
+    td code, th code { font-family: var(--mono); font-size: 12px; background: var(--code-bg); padding: 2px 6px; border-radius: 4px; color: var(--accent3); }
+
+    /* Code blocks */
+    pre {
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px 20px;
+      overflow-x: auto;
+      font-family: var(--mono);
+      font-size: 13px;
+      color: #a8d8ea;
+      line-height: 1.6;
+      margin: 12px 0 20px;
+    }
+    code { font-family: var(--mono); font-size: 12.5px; color: var(--accent3); background: var(--code-bg); padding: 2px 6px; border-radius: 4px; }
+
+    /* Architecture diagram */
+    .arch {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px 28px;
+      margin: 16px 0;
+      font-family: var(--mono);
+      font-size: 13px;
+      line-height: 1.9;
+      color: var(--muted);
+      white-space: pre;
+      overflow-x: auto;
+    }
+    .arch .hl  { color: var(--accent2); }
+    .arch .hl2 { color: var(--accent3); }
+    .arch .hl3 { color: var(--accent); }
+    .arch .hl4 { color: var(--accent5); }
+
+    /* Callout */
+    .callout {
+      border-left: 3px solid var(--accent);
+      background: rgba(91,138,245,.06);
+      border-radius: 0 var(--radius) var(--radius) 0;
+      padding: 12px 18px;
+      margin: 16px 0;
+      font-size: 14px;
+    }
+    .callout.warn   { border-color: var(--accent3); background: rgba(247,201,72,.05); }
+    .callout.info   { border-color: var(--accent2); background: rgba(78,205,196,.05); }
+    .callout.danger { border-color: var(--accent4); background: rgba(224,90,122,.06); }
+
+    /* Pipeline */
+    .pipeline {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+      gap: 10px;
+      margin: 16px 0 24px;
+    }
+    .pipeline .step {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--accent);
+      border-radius: var(--radius);
+      padding: 12px 14px;
+      font-size: 13px;
+    }
+    .pipeline .step .num {
+      display: inline-block;
+      background: var(--accent);
+      color: #fff;
+      font-weight: 700;
+      font-size: 11px;
+      width: 20px;
+      height: 20px;
+      line-height: 20px;
+      text-align: center;
+      border-radius: 50%;
+      margin-right: 6px;
+    }
+    .pipeline .step .ttl { font-weight: 700; color: var(--accent2); }
+    .pipeline .step .desc { color: var(--muted); font-size: 12px; margin-top: 4px; }
+
+    /* Scroll indicator */
+    #scroll-top {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 50%;
+      width: 40px; height: 40px;
+      font-size: 18px;
+      cursor: pointer;
+      opacity: 0;
+      transition: opacity .3s;
+      z-index: 200;
+    }
+    #scroll-top.visible { opacity: 1; }
+
+    @media (max-width: 700px) {
+      #main { padding: 24px 18px 60px; }
+      #topnav .toc { grid-template-columns: 1fr 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ════════════════ MAIN ════════════════ -->
+<main id="main">
+
+  <h1 class="page-title">CredoApp — Developer Reference</h1>
+  <p class="subtitle">In-depth analysis of the codebase, with special attention to how the History table is compiled.</p>
+
+  <!-- ════════════════ TOP INDEX ════════════════ -->
+  <nav id="topnav" aria-label="Table of contents">
+    <div class="topnav-head">
+      <h3>Contents</h3>
+      <a class="app-link" href="http://localhost:5123" target="_blank">&#9654; Open Application</a>
+    </div>
+    <div class="toc">
+      <div class="toc-group">
+        <div class="section-label">Overview</div>
+        <a href="#overview">Project Overview</a>
+        <a href="#architecture">Architecture</a>
+        <a href="#tech-stack">Tech Stack</a>
+      </div>
+      <div class="toc-group">
+        <div class="section-label">Pages &amp; Navigation</div>
+        <a href="#pages">Pages &amp; Routes</a>
+        <a href="#menu">Menu Structure</a>
+      </div>
+      <div class="toc-group">
+        <div class="section-label">Data Layer</div>
+        <a href="#models">Data Models</a>
+        <a href="#database">Database &amp; EF Core</a>
+        <a href="#repo">Repository Pattern</a>
+      </div>
+      <div class="toc-group">
+        <div class="section-label">History &amp; Pricing</div>
+        <a href="#history-overview">History Table</a>
+        <a href="#history-daily">Daily Append (Update All)</a>
+        <a href="#history-bulk">Bulk Backfill (Yahoo)</a>
+        <a href="#history-portfolio">Portfolio Series Rebuild</a>
+        <a href="#history-charts">History → Charts</a>
+      </div>
+      <div class="toc-group">
+        <div class="section-label">Services</div>
+        <a href="#updateservice">UpdateService</a>
+        <a href="#graphservice">GraphService</a>
+        <a href="#xirr">XIRR Calculator</a>
+        <a href="#internet">Internet Service</a>
+      </div>
+      <div class="toc-group">
+        <div class="section-label">UI &amp; State</div>
+        <a href="#state">State Management</a>
+        <a href="#components">UI Components</a>
+        <a href="#styling">Styling &amp; Assets</a>
+      </div>
+      <div class="toc-group">
+        <div class="section-label">Config &amp; Infra</div>
+        <a href="#config">Configuration</a>
+        <a href="#di">Dependency Injection</a>
+        <a href="#import">Import / Export</a>
+        <a href="#watchlist">Watchlist</a>
+        <a href="#patterns">Key Patterns</a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- ── OVERVIEW ── -->
+  <section id="overview">
+    <h2><span class="icon">&#128200;</span> Project Overview</h2>
+    <p>
+      <strong>CredoApp</strong> is a personal investment portfolio tracker built on <strong>ASP.NET Core Blazor
+      (Interactive Server)</strong> targeting <strong>.NET 10</strong>. It persists securities, transactions, and
+      daily price history in a local SQL Server database and synchronises live market data from the
+      <strong>Yahoo Finance API</strong> via the <code>YahooQuotesApi</code> library. Its purpose is to track
+      holdings, compute annualised returns (XIRR), and visualise portfolio value over time against the S&amp;P 500
+      benchmark.
+    </p>
+
+    <div class="card-grid">
+      <div class="card">
+        <h4>Framework</h4>
+        <p>ASP.NET Core Blazor — Interactive Server mode (SignalR-based live UI).</p>
+      </div>
+      <div class="card">
+        <h4>Language / Runtime</h4>
+        <p>C# 13 on .NET 10.0 — async/await throughout, <code>DateOnly</code> everywhere.</p>
+      </div>
+      <div class="card">
+        <h4>Database</h4>
+        <p>Microsoft SQL Server via Entity Framework Core 10 (code-first, no migrations).</p>
+      </div>
+      <div class="card">
+        <h4>Market Data</h4>
+        <p>YahooQuotesApi v7 — snapshots, historical daily series, P/E, dividend yield, FX rates.</p>
+      </div>
+      <div class="card">
+        <h4>Charting</h4>
+        <p>Chart.js (CDN) driven by JS interop. Toggles for 50/200-DMA and price-vs-% view.</p>
+      </div>
+      <div class="card">
+        <h4>CSV Import</h4>
+        <p>CsvHelper v33 with custom <code>ClassMap</code>s and null-tolerant type converters.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── ARCHITECTURE ── -->
+  <section id="architecture">
+    <h2><span class="icon">&#127959;</span> Architecture</h2>
+    <p>Layered architecture with strict separation between UI, services, and data access.</p>
+    <div class="arch"><span class="hl3">┌─────────────────────────────────────────────────────┐
+│                   Blazor UI Layer                   │
+│  Pages/ ── MainLayout ── Routes ── State (events)   │
+└──────────────────────┬──────────────────────────────┘
+                       │ DI / Method calls
+┌──────────────────────▼──────────────────────────────┐
+│                  Service Layer                      │
+│  <span class="hl">UpdateService</span>   <span class="hl">GraphService</span>   <span class="hl">Internet</span>           │
+│  <span class="hl4">XirrCalculator</span>  (business logic + Yahoo Finance)   │
+└──────────────────────┬──────────────────────────────┘
+                       │ Repo / RepoScope
+┌──────────────────────▼──────────────────────────────┐
+│                  Data Access Layer                  │
+│  <span class="hl2">Repo</span>       — read-only, AsNoTracking, per-call ctx │
+│  <span class="hl2">RepoScope</span>  — write unit-of-work, tracked, async    │
+│  <span class="hl2">DbContextFactory</span> — resolves connection per machine │
+└──────────────────────┬──────────────────────────────┘
+                       │ EF Core 10
+┌──────────────────────▼──────────────────────────────┐
+│              SQL Server Database                    │
+│  Securities · Transactions · Tickers · Currencies   │
+│  Portfolio  · <span class="hl2">History</span>  (daily prices + portfolio)  │
+└─────────────────────────────────────────────────────┘</span></div>
+
+    <h3>File Structure</h3>
+    <pre>Credo/
+├── Components/         Blazor root (App.razor, Routes.razor, MainLayout.razor)
+├── Pages/              Feature pages + code-behind (*.razor + *.razor.cs)
+├── Models/             EF Core entities + CredoDbContext
+├── Services/           UpdateService, GraphService, Internet
+├── Classes/            CSV class maps + custom type converters
+├── wwwroot/            Static assets (CSS, JS, Chart.js, help.html)
+├── Program.cs          App startup, DI registration, /help.html route
+├── AppConfig.cs        Machine-aware paths + browser lifecycle (singleton)
+├── State.cs            Scoped UI event bus (progress, dialogs, file picker)
+├── Repo.cs             Read-only data access (per-call DbContext, AsNoTracking)
+├── RepoScope.cs        Write unit-of-work (tracked DbContext, IAsyncDisposable)
+├── DbContextFactory.cs Connection string resolution + DbContext construction
+├── XirrCalculator.cs   Newton-Raphson XIRR solver with bisection fallback
+├── Extensions.cs       String / decimal / currency helpers
+└── gData.cs            Legacy global config (superseded by AppConfig)</pre>
+  </section>
+
+  <!-- ── TECH STACK ── -->
+  <section id="tech-stack">
+    <h2><span class="icon">&#128230;</span> Tech Stack &amp; Dependencies</h2>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Package</th><th>Version</th><th>Purpose</th></tr></thead>
+        <tbody>
+          <tr><td><code>Microsoft.AspNetCore.Components.QuickGrid</code></td><td>10.0.x</td><td>High-performance data grid</td></tr>
+          <tr><td><code>Microsoft.EntityFrameworkCore</code></td><td>10.0.x</td><td>ORM &amp; LINQ provider</td></tr>
+          <tr><td><code>Microsoft.EntityFrameworkCore.SqlServer</code></td><td>10.0.x</td><td>SQL Server EF Core provider</td></tr>
+          <tr><td><code>Microsoft.Data.SqlClient</code></td><td>—</td><td>Parameterised SQL for backup / restore</td></tr>
+          <tr><td><code>CsvHelper</code></td><td>33.x</td><td>CSV reading with class maps &amp; converters</td></tr>
+          <tr><td><code>YahooQuotesApi</code></td><td>7.x</td><td>Snapshots, daily history, FX rates</td></tr>
+          <tr><td><code>NodaTime</code></td><td>—</td><td><code>Instant</code> used for Yahoo history start date</td></tr>
+          <tr><td><code>Chart.js</code></td><td>CDN</td><td>Canvas-based charting</td></tr>
+          <tr><td><code>Bootstrap</code></td><td>5.x</td><td>Responsive CSS framework</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ── PAGES ── -->
+  <section id="pages">
+    <h2><span class="icon">&#128196;</span> Pages &amp; Routes</h2>
+    <p>All pages are Razor components in <code>Credo/Pages/</code> with optional <code>.razor.cs</code> code-behind files.</p>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Route</th><th>File</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td><code>/</code> · <code>/portfolio</code></td><td>PortfolioView.razor</td><td>Main dashboard — holdings, market values, day-change, gain, IRR, chart modal</td></tr>
+          <tr><td><code>/securities</code></td><td>SecuritiesView.razor</td><td>Security detail — price, P/E, dividend yield, XIRR vs SPY benchmark</td></tr>
+          <tr><td><code>/transactions</code></td><td>TransactionsView.razor</td><td>Buy/sell/dividend log with yearly fee summary</td></tr>
+          <tr><td><code>/transactions/{Data}</code></td><td>TransactionsView.razor</td><td>Fee variant (Data = "dp")</td></tr>
+          <tr><td><code>/tickers</code></td><td>TickerView.razor</td><td>Ticker symbol list (symbol, name, currency)</td></tr>
+          <tr><td><code>/expenses</code></td><td>Expenses.razor</td><td>Expense tracking</td></tr>
+          <tr><td><code>/import</code></td><td>ImportView.razor</td><td>CSV import for Tickers / Currencies / Transactions / Securities / Portfolio</td></tr>
+          <tr><td><code>/backup/{action}</code></td><td>Backup.razor</td><td>Backup &amp; Restore (action = "Backup" | "Restore")</td></tr>
+          <tr><td><code>/help.html</code></td><td>wwwroot/help.html</td><td>This developer reference (served by a custom <code>MapGet</code> in Program.cs)</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ── MENU ── -->
+  <section id="menu">
+    <h2><span class="icon">&#9776;</span> Menu Structure</h2>
+    <p>Defined in <code>Credo/Pages/Menu.razor</code> with code-behind <code>Menu.razor.cs</code>. Rendered inside <code>MainLayout.razor</code>.</p>
+
+    <div class="card-grid">
+      <div class="card">
+        <h4>&#128272; Admin</h4>
+        <p>Backup the database to OneDrive, or restore from a backup file.</p>
+        <div class="route">/backup/Backup &nbsp;·&nbsp; /backup/Restore</div>
+      </div>
+      <div class="card">
+        <h4>&#128229; Export</h4>
+        <p>Export Securities &amp; Tickers to CSV in the Downloads folder.</p>
+      </div>
+      <div class="card">
+        <h4>&#128228; Import</h4>
+        <p>Import CSV data: Tickers, Currencies, Transactions, Securities, Portfolio.</p>
+        <div class="route">/import</div>
+      </div>
+      <div class="card">
+        <h4>&#128064; View</h4>
+        <p>Portfolio, Securities, Transactions, Tickers, Fees, Expenses.</p>
+        <div class="route">/portfolio · /securities · /transactions · /tickers · /transactions/dp · /expenses</div>
+      </div>
+      <div class="card">
+        <h4>&#8635; Update</h4>
+        <p><strong>Update All</strong> · <strong>SecuritiesXIRR</strong> · <strong>Portfolio</strong> · <strong>Securities History</strong></p>
+        <p style="font-size:12px;color:#8892a4;margin-top:6px">Each shows a numeric progress bar via <code>State.UpdateProgress(percent)</code>.</p>
+      </div>
+      <div class="card">
+        <h4>&#10067; Help / Close</h4>
+        <p>Opens this reference in a new tab. <strong>Close</strong> kills the Chrome window via <code>AppConfig.StopBrowser()</code> and calls <code>IHostApplicationLifetime.StopApplication()</code>.</p>
+      </div>
+    </div>
+
+    <div class="callout info" style="margin-top:20px">
+      The <strong>Update All</strong> action (wired to <code>UpdateService.UpdateSecuritiesAsync</code>) drives
+      the entire daily refresh: snapshots → security/currency update → portfolio recompute →
+      <strong>append today's row to History</strong> for both the portfolio total and each individual security.
+      See <a href="#history-daily">Daily Append</a> below.
+    </div>
+  </section>
+
+  <!-- ── DATA MODELS ── -->
+  <section id="models">
+    <h2><span class="icon">&#128208;</span> Data Models</h2>
+    <p>Entities live in <code>Credo/Models/</code> and are mapped by <code>CredoDbContext.cs</code>. There are no Fluent API mappings — the convention-based mapping is augmented only by <code>[Key]</code> and <code>[Precision(18,4)]</code> attributes.</p>
+
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Entity</th><th>Table (DbSet)</th><th>Key Fields</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><code>Security</code></td><td><code>Securities</code></td>
+            <td>Id, TickerID, CurrencyID, SecurityName, Exchange, Currency, Price, PrevClose, ChangePercent, XIRR, XIRRNeverSold, Gain, DividendYield, EPS, PE, PEf, MarketCap. Nav: ticker, currency, Transactions.</td>
+          </tr>
+          <tr>
+            <td><code>Transaction</code></td><td><code>Transactions</code></td>
+            <td>ID, TranCode, Description, SecurityID, Security, TradeDate (<code>DateOnly</code>), Quantity, Currency, LocalAmount.</td>
+          </tr>
+          <tr>
+            <td><code>Ticker</code></td><td><code>Tickers</code></td>
+            <td>ID, Symbol, Name, Currency.</td>
+          </tr>
+          <tr>
+            <td><code>Currency</code></td><td><code>Currencies</code></td>
+            <td>ID, Symbol, Name (Yahoo FX code, e.g. <code>GBPUSD=X</code>), Rate.</td>
+          </tr>
+          <tr>
+            <td><code>Portfolio</code></td><td><code>Portfolios</code></td>
+            <td>Id, Quantity, CurrencyID, Currency, SecurityID, Security_Description, Unit_Cost, Cost, Price, Change, Market_Value, Gain, GainPerc, Pct, IRR, Persist, Sold. <code>[NotMapped]</code> Market_Value_Yesterday computed from <code>security.PrevClose</code>.</td>
+          </tr>
+          <tr>
+            <td><code>History</code></td><td><code>Histories</code></td>
+            <td>ID, Symbol, Date (<code>DateOnly</code>), Price (<code>decimal?</code>). The natural identity is the <code>(Symbol, Date)</code> pair — uniqueness is enforced in code, not by a DB constraint.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Transaction Codes</h3>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Code</th><th>Meaning</th><th>Cash-flow sign in XIRR</th></tr></thead>
+        <tbody>
+          <tr><td><code>by</code></td><td>Buy</td><td>Outflow (negative)</td></tr>
+          <tr><td><code>sl</code></td><td>Sell</td><td>Inflow (positive)</td></tr>
+          <tr><td><code>li</code></td><td>Long In (DRP receipt)</td><td>Outflow (negative)</td></tr>
+          <tr><td><code>lo</code></td><td>Long Out</td><td>Inflow (positive)</td></tr>
+          <tr><td><code>dv</code></td><td>Dividend</td><td>Inflow (positive)</td></tr>
+          <tr><td><code>in</code></td><td>Interest</td><td>Inflow (positive)</td></tr>
+          <tr><td><code>cv</code></td><td>Conversion (synthetic close-out)</td><td>Inflow (positive) — represents current market value of remaining shares</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout warn">
+      <strong>Case sensitivity caveat:</strong> <code>XirrCalculator</code> and <code>UpdatePortfolioAsync</code> compare codes <em>lowercase</em> (<code>"by"</code>, <code>"sl"</code>, etc.), but <code>GraphService.LoadTickerDataAsync</code> compares the buy/sell markers <em>uppercase</em> (<code>"BY"</code>, <code>"LI"</code>, <code>"SL"</code>, <code>"LO"</code>). Buy/sell trade markers will only render on the chart if the codes in the DB match that case. <code>GraphService.IsBuy/IsSell</code> elsewhere is case-insensitive.
+    </div>
+  </section>
+
+  <!-- ── DATABASE ── -->
+  <section id="database">
+    <h2><span class="icon">&#128451;</span> Database &amp; EF Core</h2>
+    <p>
+      <code>CredoDbContext</code> declares one <code>DbSet&lt;T&gt;</code> per entity. There is no
+      <code>OnModelCreating</code>; relationships are inferred by convention from the
+      <code>SecurityID</code>, <code>TickerID</code>, <code>CurrencyID</code> foreign-key properties.
+    </p>
+
+    <h3>DbContextFactory</h3>
+    <p>
+      <code>DbContextFactory.cs</code> resolves the connection string in this order, returning the first non-empty match:
+    </p>
+    <ol class="numbered">
+      <li><code>appConfig.ConnectionKey</code> (default <code>"XPS"</code>, mutable at runtime)</li>
+      <li><code>appConfig.MachineName</code> (the value of <code>Environment.MachineName</code>)</li>
+      <li>literal <code>"Local"</code></li>
+    </ol>
+    <p>Within the chosen template it substitutes placeholders:</p>
+    <pre>// Template in appsettings.json
+"Server=[ServerName];Database=[DatabaseName];Trusted_Connection=True;
+ TrustServerCertificate=True;MultipleActiveResultSets=True"
+
+// At runtime:
+//   [ServerName]   → {MachineName}\SQL
+//   [DatabaseName] → appConfig.DbName  (defaults to "Credo")</pre>
+    <p>In Development mode the builder enables <code>EnableSensitiveDataLogging()</code>.</p>
+
+    <h3>Auto-Includes (RepoQuery)</h3>
+    <p>The internal static <code>RepoQuery</code> helper inside <code>RepoScope.cs</code> applies
+    type-specific <code>.Include(...)</code> chains and a default <code>OrderBy</code>:</p>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Entity</th><th>Includes</th><th>Default order</th></tr></thead>
+        <tbody>
+          <tr><td><code>Portfolio</code></td><td>security → Transactions, security → ticker, currency</td><td><code>security.ticker.Name</code></td></tr>
+          <tr><td><code>Security</code></td><td>ticker, currency, Transactions</td><td><code>ticker.Name</code></td></tr>
+          <tr><td><code>Transaction</code></td><td>(none)</td><td><code>TradeDate</code></td></tr>
+          <tr><td><code>Ticker</code></td><td>(none)</td><td><code>Name</code></td></tr>
+          <tr><td><code>Currency</code></td><td>(none)</td><td><code>Name</code></td></tr>
+          <tr><td><code>History</code></td><td>(none)</td><td><code>Date</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout warn">
+      <strong>Backup / Restore</strong> bypass EF and execute raw T-SQL via <code>ExecuteSqlInterpolatedAsync</code>
+      / <code>ExecuteSqlRawAsync</code>. <code>SqlRestoreAsync</code> validates the DB name against a regex
+      to prevent identifier injection, parameterises the backup file path, and toggles the database
+      <code>SINGLE_USER WITH ROLLBACK IMMEDIATE → MULTI_USER</code> around the restore.
+    </div>
+  </section>
+
+  <!-- ── REPO ── -->
+  <section id="repo">
+    <h2><span class="icon">&#128268;</span> Repository Pattern</h2>
+
+    <h3>Repo.cs — Read-only</h3>
+    <p>Each read method creates a fresh <code>CredoDbContext</code>, executes <code>.AsNoTracking()</code>,
+    and disposes the context. Cheap and stateless.</p>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Method</th><th>Returns</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td><code>AnyEntityAsync&lt;T&gt;(filter?)</code></td><td><code>bool</code></td><td>Existence check</td></tr>
+          <tr><td><code>GetEntityNTAsync&lt;T&gt;(filter?)</code></td><td><code>T?</code></td><td>Single no-track entity (uses <code>SingleOrDefaultAsync</code>)</td></tr>
+          <tr><td><code>GetEntitiesNTAsync&lt;T&gt;(filter?, sort?)</code></td><td><code>IList&lt;T&gt;</code></td><td>List, with optional ordering on top of <code>RepoQuery</code> defaults</td></tr>
+          <tr><td><code>GetLatestHistoryDateAsync()</code></td><td><code>DateOnly?</code></td><td>Max <code>Date</code> across <em>all</em> History rows</td></tr>
+          <tr><td><code>GetLatestTransactionDateAsync()</code></td><td><code>DateOnly?</code></td><td>Max <code>TradeDate</code> across all transactions</td></tr>
+          <tr><td><code>SqlBackupAsync(path)</code></td><td><code>Task</code></td><td>Interpolated <code>BACKUP DATABASE</code></td></tr>
+          <tr><td><code>SqlRestoreAsync(path)</code></td><td><code>Task</code></td><td>Validated + parameterised <code>RESTORE DATABASE</code></td></tr>
+          <tr><td><code>BeginScope()</code></td><td><code>RepoScope</code></td><td>Factory for a tracked write scope</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>RepoScope.cs — Write unit-of-work</h3>
+    <p>Owns one tracked <code>CredoDbContext</code>; implements <code>IAsyncDisposable</code>.</p>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Method</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td><code>GetEntityAsync&lt;T&gt;(filter?)</code></td><td>Single tracked entity</td></tr>
+          <tr><td><code>GetEntitiesAsync&lt;T&gt;(filter?, sort?)</code></td><td>Tracked list with <code>RepoQuery</code> includes</td></tr>
+          <tr><td><code>Add(entity)</code> / <code>AddRange(list)</code></td><td>Stage inserts</td></tr>
+          <tr><td><code>RemoveRange(list)</code></td><td>Stage deletes</td></tr>
+          <tr><td><code>SaveChangesAsync()</code></td><td>Flush pending changes</td></tr>
+          <tr><td><code>DisposeAsync()</code></td><td>Disposes the context</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <pre>// Canonical usage
+await using var scope = repo.BeginScope();
+var sec = await scope.GetEntityAsync&lt;Security&gt;(s =&gt; s.Id == id);
+sec.Price = newPrice;
+await scope.SaveChangesAsync();</pre>
+  </section>
+
+  <!-- ════════════════════════════════════════════════════════════════ -->
+  <!-- ══════════════════ HISTORY DEEP DIVE ═══════════════════════════ -->
+  <!-- ════════════════════════════════════════════════════════════════ -->
+
+  <section id="history-overview">
+    <h2><span class="icon">&#128202;</span> History Table — How It's Compiled</h2>
+
+    <p>
+      The <code>History</code> table is the time-series backbone of the application. Every row is a
+      <code>(Symbol, Date, Price)</code> triple. The table holds <strong>two logically distinct kinds of
+      series stored side by side</strong>:
+    </p>
+
+    <ul class="bullets">
+      <li><strong>Per-ticker price series</strong> — <code>Symbol</code> is a Yahoo symbol (e.g. <code>AAPL</code>, <code>VOD.L</code>, <code>^GSPC</code>, <code>GBPUSD=X</code>). Used for individual ticker charts, the SPY benchmark, FX-rate lookup during portfolio recomputation, and as input to the synthetic portfolio series.</li>
+      <li><strong>Portfolio total series</strong> — <code>Symbol = "Portfolio"</code> (capital P). One row per day equal to the total USD market value of all holdings on that day.</li>
+    </ul>
+
+    <h3>The (Symbol, Date) pair</h3>
+    <p>
+      There is no unique index on <code>(Symbol, Date)</code> in the database — duplicate-prevention is
+      enforced entirely in C# by building a <code>HashSet&lt;(string, DateOnly)&gt;</code> of existing
+      keys at the start of an update and using <code>HashSet.Add</code> as an atomic
+      "does-not-already-exist" test.
+    </p>
+
+    <h3>Three entry points that write to History</h3>
+    <div class="pipeline">
+      <div class="step">
+        <span class="num">1</span><span class="ttl">Daily append</span>
+        <div class="desc"><code>UpdateService.UpdateSecuritiesAsync</code> &nbsp;→ <code>AppendPortfolioHistoryAsync</code> &amp; <code>AppendSecuritiesHistoryAsync</code>. Upserts today's row for <em>each</em> security plus the portfolio total.</div>
+      </div>
+      <div class="step">
+        <span class="num">2</span><span class="ttl">Bulk backfill</span>
+        <div class="desc"><code>UpdateService.UpdateHistoryAsync</code> — for each ticker, fetches Yahoo daily history from the last known date forward, appends rows not already present.</div>
+      </div>
+      <div class="step">
+        <span class="num">3</span><span class="ttl">Portfolio rebuild</span>
+        <div class="desc"><code>GraphService.BackfillPortfolioHistoryAsync</code> (not wired to UI). Wipes the entire <code>Symbol="Portfolio"</code> series and rebuilds it from transactions × per-ticker history × FX.</div>
+      </div>
+    </div>
+
+    <p>
+      One read entry point also matters for understanding History:
+      <code>GraphService.ComputePortfolioChartAsync</code> performs the same synthetic-portfolio computation
+      as path&nbsp;3 but <strong>in memory only</strong> — used when the user excludes one or more
+      securities from the portfolio chart on the PortfolioView page.
+    </p>
+  </section>
+
+  <!-- ── DAILY APPEND ── -->
+  <section id="history-daily">
+    <h2><span class="icon">&#128197;</span> 1 · Daily Append (the "Update All" path)</h2>
+
+    <p>
+      Triggered when the user clicks <strong>Update &rsaquo; Update All</strong> in the menu, or
+      <strong>Refresh</strong> on the PortfolioView. The single public entry point is
+      <code>UpdateService.UpdateSecuritiesAsync()</code>; everything else in the chain is private.
+    </p>
+
+    <h3>End-to-end pipeline</h3>
+    <div class="pipeline">
+      <div class="step"><span class="num">1</span><span class="ttl">Read tickers</span>
+        <div class="desc">All <code>Ticker</code> rows except <code>USDUSD=X</code> (the self-USD pseudo-FX is excluded everywhere).</div>
+      </div>
+      <div class="step"><span class="num">2</span><span class="ttl">Yahoo snapshot</span>
+        <div class="desc"><code>YahooQuotesBuilder().Build().GetSnapshotAsync(symbols)</code>. A 1-second <code>PeriodicTimer</code> bumps the progress bar in 10-point steps up to 95 while waiting.</div>
+      </div>
+      <div class="step"><span class="num">3</span><span class="ttl">Update Securities</span>
+        <div class="desc">For each security, copy <code>Price, PrevClose, Exchange, ChangePercent, DividendYield, EPS, PE, PEf, MarketCap, Currency</code> from the snapshot. Missing snapshot → <code>Price = 1</code>.</div>
+      </div>
+      <div class="step"><span class="num">4</span><span class="ttl">Update Currencies</span>
+        <div class="desc">For each <code>Currency</code> (except USDUSD=X), copy the snapshot <code>RegularMarketPrice</code> into <code>Rate</code>.</div>
+      </div>
+      <div class="step"><span class="num">5</span><span class="ttl">SaveChanges</span>
+        <div class="desc">Commits the Security + Currency updates as one transaction.</div>
+      </div>
+      <div class="step"><span class="num">6</span><span class="ttl">UpdatePortfolio</span>
+        <div class="desc">Recomputes Portfolio rows from the just-updated prices &amp; FX rates (Market_Value, Gain, GainPerc, Pct, IRR).</div>
+      </div>
+      <div class="step"><span class="num">7</span><span class="ttl">AppendPortfolioHistory</span>
+        <div class="desc">Upserts today's <code>Symbol="Portfolio"</code> row to the new total.</div>
+      </div>
+      <div class="step"><span class="num">8</span><span class="ttl">AppendSecuritiesHistory</span>
+        <div class="desc">Upserts today's row for every security with a known price.</div>
+      </div>
+    </div>
+
+    <h3>AppendPortfolioHistoryAsync — the portfolio row</h3>
+    <pre>private async Task AppendPortfolioHistoryAsync()
+{
+    await using var scope = repo.BeginScope();
+    var ports = await scope.GetEntitiesAsync&lt;Portfolio&gt;();
+    var total = Math.Round(ports.Sum(p =&gt; p.Market_Value ?? 0m), 2);
+    var today = DateOnly.FromDateTime(DateTime.Today);
+
+    var row = await scope.GetEntityAsync&lt;History&gt;(
+        h =&gt; h.Symbol == "Portfolio" &amp;&amp; h.Date == today);
+
+    if (row is null)
+        scope.Add(new History { Symbol = "Portfolio", Date = today, Price = total });
+    else
+        row.Price = total;                    // ← upsert: overwrite same-day value
+
+    await scope.SaveChangesAsync();
+}</pre>
+    <p>Two non-obvious properties of this routine:</p>
+    <ul class="bullets">
+      <li><strong>Upsert semantics.</strong> Running Update All multiple times in one day does not create duplicate rows — it just updates today's existing one. This is why the "natural key" is <code>(Symbol, Date)</code> even without a DB constraint.</li>
+      <li><strong>Depends on UpdatePortfolio having just run.</strong> The total is read from <code>Portfolio.Market_Value</code>, not recomputed from securities directly. Calling this method standalone (without the preceding portfolio recompute) would record yesterday's total against today's date.</li>
+    </ul>
+
+    <h3>AppendSecuritiesHistoryAsync — per-security rows</h3>
+    <pre>foreach (var security in securities)
+{
+    var symbol = security.ticker?.Symbol;
+    if (symbol is null) continue;
+
+    var row = await scope.GetEntityAsync&lt;History&gt;(
+        h =&gt; h.Symbol == symbol &amp;&amp; h.Date == today);
+
+    if (row is null)
+        scope.Add(new History { Symbol = symbol, Date = today, Price = security.Price });
+    else
+        row.Price = security.Price;
+}
+await scope.SaveChangesAsync();</pre>
+    <p>
+      Same upsert pattern. Note that securities filter is <code>x.ticker != null &amp;&amp; x.Price != null</code> —
+      securities without a resolved ticker (e.g. cash positions like "AUSTRALIAN DOLLAR") never produce
+      a History row. The <code>Price</code> here is the value just written by
+      <code>UpdateSecuritiesAsync</code>, i.e. the latest Yahoo snapshot price <em>in the security's local currency</em>.
+    </p>
+
+    <div class="callout info">
+      <strong>Why two separate methods instead of one?</strong> The portfolio total is denominated in
+      USD (already FX-converted in <code>Portfolio.Market_Value</code>), while per-security prices are in
+      each security's own currency. They are different units stored in the same table, distinguished only
+      by the <code>Symbol</code> column.
+    </div>
+  </section>
+
+  <!-- ── BULK BACKFILL ── -->
+  <section id="history-bulk">
+    <h2><span class="icon">&#128229;</span> 2 · Bulk Backfill from Yahoo (UpdateHistoryAsync)</h2>
+
+    <p>
+      Triggered from <strong>Update &rsaquo; Securities History</strong>. Fills gaps in the per-ticker
+      daily price series — <em>not</em> the <code>"Portfolio"</code> series. Idempotent.
+    </p>
+
+    <h3>Algorithm</h3>
+    <ol class="numbered">
+      <li>Read all <code>Ticker</code> rows. If there are none, bail out.</li>
+      <li>Read the entire <code>History</code> table once. Build two structures from it:
+        <ul class="bullets">
+          <li><code>existingKeys</code> — <code>HashSet&lt;(string, DateOnly)&gt;</code> for O(1) duplicate detection.</li>
+          <li><code>lastDateBySymbol</code> — <code>Dictionary&lt;string, DateOnly&gt;</code> mapping each symbol to its latest known date.</li>
+        </ul>
+      </li>
+      <li>For each ticker, pick a start date:
+        <pre>start = lastDateBySymbol.TryGetValue(symbol) ? lastKnownDate : today minus 5 years</pre>
+        The default of <strong>1 August 2016</strong> is the project's epoch — the earliest date the
+        user wants history for if a symbol is brand new.
+      </li>
+      <li>Build a fresh <code>YahooQuotesBuilder</code> per ticker with the start date converted into a
+        NodaTime <code>Instant</code> and fetch <code>GetHistoryAsync(symbol)</code>.</li>
+      <li>For each returned tick (sorted chronologically), call
+        <code>existingKeys.Add((symbol, date))</code>. If it returns <code>true</code>, the key was
+        not previously present → stage a new <code>History</code> row. If <code>false</code>, skip.
+        This deduplicates against both the database <em>and</em> rows already staged in the current run.</li>
+      <li>Tickers whose symbols Yahoo rejects throw <code>ArgumentException</code> and are silently
+        skipped (see <code>FetchTickerHistoryAsync</code>).</li>
+      <li>After looping all tickers, perform a <strong>second Yahoo call</strong>:
+        <code>GetSnapshotAsync(allSymbols)</code>. For each symbol that does not already have a row for
+        <em>today</em>, add one using <code>snapshot.RegularMarketPrice</code>.</li>
+      <li>One bulk <code>AddRange(toAdd)</code> + <code>SaveChangesAsync()</code>.</li>
+    </ol>
+
+    <div class="callout warn">
+      <strong>Why the second snapshot call at the end?</strong> Yahoo's daily history endpoint does not
+      publish "today" until after market close — and for indices like <code>^GSPC</code>, often not even
+      then. Without the snapshot top-up, charts would always be missing the most recent point, and the
+      <a href="#history-portfolio">portfolio backfill</a> would also stop one day short. The snapshot
+      gives every ticker the same end-of-day treatment that <code>AppendSecuritiesHistoryAsync</code>
+      gives the user's own securities.
+    </div>
+
+    <h3>Progress reporting</h3>
+    <pre>state.UpdateProgress(done * 100.0 / total, $"Updating History ({done}/{total})");</pre>
+    <p>
+      <code>State.UpdateProgress</code> takes a <strong>numeric percent</strong> (clamped 0–100) and an
+      optional title — not a free-form message. The progress UI reads <code>State.ProgressVal</code>
+      and <code>State.TitleD</code> from the event payload.
+    </p>
+  </section>
+
+  <!-- ── PORTFOLIO REBUILD ── -->
+  <section id="history-portfolio">
+    <h2><span class="icon">&#128200;</span> 3 · Portfolio Series Rebuild (Backfill &amp; in-memory)</h2>
+
+    <p>
+      The synthetic <code>"Portfolio"</code> series can be rebuilt from scratch by reconstructing what the
+      portfolio's USD market value would have been on every historical date. Two methods share the same
+      algorithm — one writes to History, the other returns the result as <code>ChartData</code> for live
+      "exclude-some-securities" views.
+    </p>
+
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Method</th><th>Output</th><th>When invoked</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><code>GraphService.BackfillPortfolioHistoryAsync()</code></td>
+            <td>Wipes all <code>Symbol="Portfolio"</code> rows and reinserts the entire series. Returns row count.</td>
+            <td>Not wired to UI — manual one-off (e.g. after a corrupted History). The method header explicitly notes "Future Use".</td>
+          </tr>
+          <tr>
+            <td><code>GraphService.ComputePortfolioChartAsync(excludedSecurityIds?)</code></td>
+            <td>Returns in-memory <code>ChartData</code>; never touches the DB.</td>
+            <td>Called from <code>PortfolioView.ShowPortfolioChartAsync</code> whenever the user has ticked any rows to exclude. With no exclusions, the page reads the pre-computed series via <code>LoadTickerDataAsync("Portfolio", null)</code>.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Shared algorithm</h3>
+    <ol class="numbered">
+      <li>Read all <code>Security</code> rows. Find the earliest buy-transaction date across the lot
+        (using <code>IsBuy</code>: <code>by</code> or <code>li</code>, case-insensitive). This is the
+        first date on which the portfolio existed.</li>
+      <li>Build the list of relevant symbols:
+        <ul class="bullets">
+          <li><code>secSymbols</code> — every distinct <code>ticker.Symbol</code> present.</li>
+          <li><code>fxSymbols</code> — every distinct security <code>Currency</code> that is not <code>USD=X</code>.</li>
+        </ul>
+        Fetch all History rows whose <code>Symbol</code> matches either set, ordered by Date.
+      </li>
+      <li>Group History by symbol into a <code>Dictionary&lt;string, List&lt;History&gt;&gt;</code> for fast lookup.</li>
+      <li>Enumerate the union of distinct Dates in that history (between earliest buy and today).
+        This is the <strong>date axis</strong> of the resulting series — note it is <em>only</em>
+        dates on which <em>some</em> ticker traded, not a continuous calendar.</li>
+      <li>For each date, sum across securities:
+        <ol class="numbered">
+          <li>Replay this security's transactions up to and including the date to derive the open
+            quantity (<code>+by/+li</code>, <code>-sl/-lo</code>). Skip if &le; 0.</li>
+          <li>Look up the security's price via <code>LastOnOrBefore(history, date)</code> — the
+            most recent price row at or before the date (handles weekends, holidays, and tickers
+            that haven't traded yet).</li>
+          <li>If the security's currency &ne; <code>USD=X</code>, do the same <code>LastOnOrBefore</code>
+            lookup against the FX symbol to get the conversion rate. Skip the security on dates where
+            no FX rate is yet known.</li>
+          <li>Add <code>qty × price × fx</code> to the day's total.</li>
+        </ol>
+      </li>
+      <li>Round each daily total to 2 dp and emit a label/value pair (or a <code>History</code> row).</li>
+    </ol>
+
+    <h3>LastOnOrBefore — the "last known price" rule</h3>
+    <pre>private static History? LastOnOrBefore(List&lt;History&gt; sortedRows, DateOnly date)
+{
+    History? best = null;
+    foreach (var r in sortedRows)
+    {
+        if (r.Date &gt; date) break;
+        best = r;
+    }
+    return best;
+}</pre>
+    <p>
+      Linear scan through pre-sorted rows. Because the input is grouped + sorted once per request, the
+      total cost is acceptable for typical history sizes. This is what allows the portfolio total on a
+      Saturday to still use Friday's close. If a security's symbol has <em>no</em> price on or before
+      the date (it hadn't started trading yet), that security simply contributes zero that day.
+    </p>
+
+    <div class="callout">
+      <strong>Backfill is destructive.</strong> <code>BackfillPortfolioHistoryAsync</code> begins by
+      deleting <em>all</em> rows where <code>Symbol = "Portfolio"</code> in a single <code>RemoveRange</code>
+      call, then re-inserts the recomputed series. There is no transaction rollback safeguard beyond
+      EF's per-call transaction — a backup before running it is wise.
+    </div>
+  </section>
+
+  <!-- ── CHARTS ── -->
+  <section id="history-charts">
+    <h2><span class="icon">&#128200;</span> 4 · How History Feeds the Charts</h2>
+    <p>
+      The chart modal (<code>ChartModal.razor</code>) receives a <code>ChartData</code> record from one
+      of three sources, all rooted in History:
+    </p>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Source</th><th>What it does</th><th>Used by</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><code>LoadPortfolioDataAsync()</code></td>
+            <td>Loads the pre-computed <code>"Portfolio"</code> series and joins SPY (<code>^GSPC</code>) by date for an overlay.</td>
+            <td>Not currently called from the UI — <code>PortfolioView</code> uses <code>LoadTickerDataAsync("Portfolio", null)</code> instead, which yields the same shape.</td>
+          </tr>
+          <tr>
+            <td><code>LoadTickerDataAsync(symbol, secId)</code></td>
+            <td>Loads one symbol's daily history, joins SPY by date, and overlays buy/sell markers from <code>Transaction</code> rows for <code>secId</code> (matched against the History date via <code>FindDateIndex</code>, which returns the first index ≥ trade date).</td>
+            <td>PortfolioView row-click → ticker chart, and the portfolio-overview chart when no exclusions are active.</td>
+          </tr>
+          <tr>
+            <td><code>ComputePortfolioChartAsync(excludedIds)</code></td>
+            <td>In-memory rebuild using the algorithm in <a href="#history-portfolio">Section 3</a>.</td>
+            <td>Portfolio chart when the user has ticked one or more securities to exclude.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>SliceByRange — range toggle</h3>
+    <p>
+      The <code>1y / 2y / 5y / All</code> toggle in the chart modal is implemented by slicing the array
+      ends rather than re-querying. <code>SliceByRange</code> detects daily vs monthly data from label
+      length and takes the last <code>252 / 504 / 1260 / 12 / 24 / 60</code> entries respectively.
+    </p>
+
+    <h3>SPY benchmark joining</h3>
+    <p>
+      In every chart method, <code>^GSPC</code> rows are loaded separately and zipped against the
+      primary series by date via a <code>Dictionary&lt;DateOnly, decimal?&gt;</code> lookup. Dates
+      with no SPY row produce <code>null</code> in the SpyData array, which Chart.js renders as a gap.
+    </p>
+  </section>
+
+  <!-- ── UPDATE SERVICE ── -->
+  <section id="updateservice">
+    <h2><span class="icon">&#8635;</span> UpdateService</h2>
+    <p><code>Credo/Services/UpdateService.cs</code>. Handles every external-data sync. All public methods
+    show progress through <code>State.UpdateProgress(percent, title?)</code>.</p>
+
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Method</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td><code>UpdateSecuritiesAsync()</code></td><td>Top-level "Update All" orchestrator. Snapshots Yahoo, updates Securities + Currencies, then runs Portfolio recompute and the two History append steps.</td></tr>
+          <tr><td><code>UpdatePortfolioAsync()</code></td><td>For each Portfolio row: recompute Currency, Price (local), Market_Value (USD via <code>currency.Rate</code>), Gain, GainPerc, Pct (% of total), IRR (XIRR including a synthetic <code>cv</code> close-out for open positions).</td></tr>
+          <tr><td><code>UpdateHistoryAsync()</code></td><td>See <a href="#history-bulk">Section 2</a>. Bulk Yahoo backfill of per-ticker series + today-snapshot top-up.</td></tr>
+          <tr><td><code>AppendPortfolioHistoryAsync()</code> (private)</td><td>See <a href="#history-daily">Section 1</a>. Upsert today's <code>"Portfolio"</code> row.</td></tr>
+          <tr><td><code>AppendSecuritiesHistoryAsync()</code> (private)</td><td>See <a href="#history-daily">Section 1</a>. Upsert today's row per security.</td></tr>
+          <tr><td><code>Cash(secname)</code> (private static)</td><td>Maps cash-position security names ("AUSTRALIAN DOLLAR", "POUND STERLING", "EURO", "US DOLLAR") to Yahoo FX symbols.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout danger">
+      The try/catch around the orchestrator is currently commented out — exceptions from Yahoo or the
+      DB will propagate uncaught into the Blazor circuit. Re-enabling it would route failures through
+      <code>State.ShowMessage("Update Failed", …)</code>.
+    </div>
+  </section>
+
+  <!-- ── GRAPH SERVICE ── -->
+  <section id="graphservice">
+    <h2><span class="icon">&#128202;</span> GraphService</h2>
+    <p><code>Credo/Services/GraphService.cs</code>. Source of all <code>ChartData</code> records.</p>
+
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Method</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td><code>LoadPortfolioDataAsync()</code></td><td>Read pre-computed <code>Symbol="Portfolio"</code> + <code>^GSPC</code> series.</td></tr>
+          <tr><td><code>LoadTickerDataAsync(symbol, secId?)</code></td><td>One ticker's daily series + SPY overlay + optional buy/sell markers (codes <code>BY/LI/SL/LO</code> — uppercase).</td></tr>
+          <tr><td><code>ComputePortfolioChartAsync(excludedSecurityIds?)</code></td><td>In-memory portfolio rebuild from transactions × per-ticker history × FX.</td></tr>
+          <tr><td><code>BackfillPortfolioHistoryAsync()</code></td><td>Destructive rebuild of the <code>"Portfolio"</code> History rows.</td></tr>
+          <tr><td><code>SliceByRange(full, range)</code></td><td>Tail-slice a series to 1y / 2y / 5y / all.</td></tr>
+          <tr><td><code>IsBuy / IsSell</code> (private static)</td><td>Case-insensitive transaction-code checks used by the portfolio rebuild paths.</td></tr>
+          <tr><td><code>LastOnOrBefore</code> (private static)</td><td>Linear scan for the last History row at or before a given date.</td></tr>
+          <tr><td><code>FindDateIndex</code> (private static)</td><td>First index in the History array where <code>Date ≥ tradeDate</code> — used to place buy/sell markers on the ticker chart.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <pre>public record ChartData(
+    string[] Labels,           // "yyyy-MM-dd"
+    decimal[] Data,            // primary series
+    decimal?[]? SpyData,       // ^GSPC aligned by date (nullable for missing)
+    decimal?[]? TradeData,     // buy markers (sparse — null except at trade dates)
+    decimal?[]? SellTradeData, // sell markers
+    string? Title);</pre>
+  </section>
+
+  <!-- ── XIRR ── -->
+  <section id="xirr">
+    <h2><span class="icon">&#128185;</span> XIRR Calculator</h2>
+    <p>
+      <code>Credo/XirrCalculator.cs</code>. Newton-Raphson solver (max 200 iterations, tolerance
+      <code>1e-8</code>) with a bisection fallback bracketed at <code>[-0.999, 100.0]</code>. Years are
+      computed via <code>DateOnly.DayNumber / 365.0</code>.
+    </p>
+
+    <pre>// Cash-flow convention
+// by, li               → outflow (negative LocalAmount)
+// sl, lo, dv, in, cv  → inflow  (positive LocalAmount)
+// Unrecognised codes  → silently skipped</pre>
+
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Method</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td><code>CalculateXirr(IReadOnlyList&lt;(DateOnly, decimal)&gt;)</code></td><td>Solver on raw cash flows.</td></tr>
+          <tr><td><code>CalculateXirr(IList&lt;Transaction&gt;)</code></td><td>Maps <code>TranCode</code>s to signed cash flows, then solves. Caller appends a synthetic <code>cv</code> close-out at <code>Quantity × current price</code> for open positions.</td></tr>
+          <tr><td><code>CalculateSpyXirr(transactions, spyPrices, currencyRate?)</code></td><td>Hypothetical XIRR if the same <code>by/li/sl/lo</code> cash had bought SPY at the next available date. Adds a residual at the latest SPY date for unsold SPY shares.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout info">
+      The <code>SecuritiesXIRR</code> menu item runs <strong>two</strong> passes:
+      <code>UpdateSecuritiesXIRR</code> (regular XIRR, all transactions) and
+      <code>UpdateSecuritiesNeverSoldXIRR</code> (excludes <code>sl</code> sells — represents the
+      counterfactual "what if we'd never sold"). Both append a synthetic <code>cv</code> close-out at
+      <code>Price × open-quantity</code>.
+    </div>
+  </section>
+
+  <!-- ── INTERNET ── -->
+  <section id="internet">
+    <h2><span class="icon">&#127758;</span> Internet Service</h2>
+    <p>
+      <code>Credo/Services/Internet.cs</code>. Single method <code>ResolveTickerViaApi(Security)</code>
+      that hits <code>https://query2.finance.yahoo.com/v1/finance/search?q=…</code> with a Mozilla
+      <code>User-Agent</code>, parses the JSON via <code>System.Text.Json</code>, and returns the first
+      <code>symbol</code> from the <code>quotes</code> array.
+    </p>
+    <div class="callout warn">
+      Not registered in DI (no <code>AddScoped&lt;Internet&gt;</code> in <code>Program.cs</code>). It is
+      currently dead code — either remove or wire it up before relying on it.
+    </div>
+  </section>
+
+  <!-- ── STATE ── -->
+  <section id="state">
+    <h2><span class="icon">&#9889;</span> State Management</h2>
+    <p>
+      <code>Credo/State.cs</code> is a <strong>scoped</strong> service (one per Blazor circuit) acting as
+      an event bus between services and UI components. Components subscribe to delegate events;
+      services raise them by name — no direct component references.
+    </p>
+
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Member</th><th>Purpose</th></tr></thead>
+        <tbody>
+          <tr><td><code>Progress (event Action&lt;bool&gt;)</code></td><td>Show/hide progress modal.</td></tr>
+          <tr><td><code>FileNameGet (event Func&lt;Task&lt;string&gt;&gt;)</code></td><td>OS file-picker; returns selected path.</td></tr>
+          <tr><td><code>FileUpload (event Func&lt;string,string,string,Task&lt;IBrowserFile?&gt;&gt;)</code></td><td>Browser upload dialog.</td></tr>
+          <tr><td><code>MessageShow (event Func&lt;string,string,string,Task&lt;string&gt;&gt;)</code></td><td>Modal dialog (title, message, button text).</td></tr>
+          <tr><td><code>ProgressVal (double)</code></td><td>Current progress 0–100; clamped on set.</td></tr>
+          <tr><td><code>TitleD (string?)</code></td><td>Current progress title.</td></tr>
+          <tr><td><code>ShowProgress(title, showProgress?, initial?)</code></td><td>Open progress UI.</td></tr>
+          <tr><td><code>UpdateProgress(progress, title?)</code></td><td>Numeric update, clamped to [0,100].</td></tr>
+          <tr><td><code>Hide()</code></td><td>Closes progress modal &amp; resets to 0.</td></tr>
+          <tr><td><code>ShowFilePicker()</code> · <code>ShowFileUpload(...)</code> · <code>ShowMessage(...)</code></td><td>Invoke the corresponding event and await the result.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ── COMPONENTS ── -->
+  <section id="components">
+    <h2><span class="icon">&#129520;</span> UI Components</h2>
+    <div class="card-grid">
+      <div class="card"><h4>ChartModal.razor</h4>
+        <p>Chart.js line chart in a Bootstrap-style overlay. Toggles for 50-DMA, 200-DMA, and price-vs-percentage view, all driven by JS interop into <code>renderSecurityChart</code> / <code>toggleMA50</code> / <code>toggleMA200</code> / <code>toggleSecurityChartPct</code>.</p>
+      </div>
+      <div class="card"><h4>DialogBox.razor</h4>
+        <p>Generic modal subscribed to <code>State.MessageShow</code>.</p>
+      </div>
+      <div class="card"><h4>TransViewMod.razor</h4>
+        <p>Transaction view modifier — filter/display toggle for the transaction list.</p>
+      </div>
+      <div class="card"><h4>ReconnectModal.razor</h4>
+        <p>Built-in Blazor reconnect overlay when the SignalR circuit drops.</p>
+      </div>
+      <div class="card"><h4>MainLayout.razor</h4>
+        <p>Renders the Menu and the <code>@Body</code> slot.</p>
+      </div>
+      <div class="card"><h4>Routes.razor</h4>
+        <p>Blazor router. Discovers pages via <code>typeof(Program).Assembly</code>. Default layout = <code>MainLayout</code>.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── STYLING ── -->
+  <section id="styling">
+    <h2><span class="icon">&#127912;</span> Styling &amp; Assets</h2>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Path</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td><code>wwwroot/css/app.css</code></td><td>Portfolio toolbar, side menu, scrollable tables, sign-coloured XIRR values.</td></tr>
+          <tr><td><code>wwwroot/css/Credo.styles.css</code></td><td>Auto-generated scoped CSS.</td></tr>
+          <tr><td><code>wwwroot/Script/Javascript.js</code></td><td>Chart.js setup, MA toggles, context-menu helpers, viewport width.</td></tr>
+          <tr><td><code>wwwroot/lib/</code></td><td>Bootstrap bundle.</td></tr>
+          <tr><td><code>wwwroot/help.html</code></td><td>This reference. Served by a dedicated <code>app.MapGet("/help.html", …)</code> in <code>Program.cs</code> that forces UTF-8.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ── CONFIG ── -->
+  <section id="config">
+    <h2><span class="icon">&#9881;</span> Configuration</h2>
+
+    <h3>appsettings.json</h3>
+    <pre>{
+  "ConnectionStrings": {
+    "ROG":   "Server=[ServerName];Database=[DatabaseName];Trusted_Connection=True;TrustServerCertificate=True;MultipleActiveResultSets=True",
+    "XPS":   "Server=[ServerName];Database=[DatabaseName];Trusted_Connection=True;TrustServerCertificate=True;MultipleActiveResultSets=True",
+    "Local": "Server=[ServerName];Database=[DatabaseName];Trusted_Connection=True;TrustServerCertificate=True;MultipleActiveResultSets=True"
+  },
+  "Paths": {
+    "Backup":     "%USERPROFILE%\\OneDrive\\Database\\SQL16\\Backup\\Credo\\",
+    "Downloads":  "%USERPROFILE%\\Downloads\\Credo\\",
+    "BrowserXPS": "%ProgramFiles%\\Google\\Chrome\\Application\\chrome.exe",
+    "BrowserROG": "C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe"
+  },
+  "Kestrel": { "Endpoints": { "Http": { "Url": "http://localhost:5123" } } }
+}</pre>
+
+    <h3>AppConfig.cs (singleton)</h3>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Property / Method</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td><code>MachineName</code></td><td><code>Environment.MachineName</code> at startup.</td></tr>
+          <tr><td><code>ConnectionKey</code></td><td>Mutable. Default <code>"XPS"</code>. First key tried by <code>DbContextFactory</code>.</td></tr>
+          <tr><td><code>DbName</code></td><td>Mutable. Default <code>"Credo"</code>. Substituted into <code>[DatabaseName]</code>.</td></tr>
+          <tr><td><code>BackupPath</code> / <code>DownloadsPath</code></td><td>Expanded via <code>Environment.ExpandEnvironmentVariables</code>.</td></tr>
+          <tr><td><code>BrowserPath</code></td><td>Selected at construction time: <code>BrowserROG</code> if <code>MachineName=="ROG"</code> else <code>BrowserXPS</code>.</td></tr>
+          <tr><td><code>StartBrowser(url)</code></td><td>Launches Chrome only if the executable actually exists. Tracks the <code>Process</code> handle.</td></tr>
+          <tr><td><code>StopBrowser()</code></td><td>Politely closes the main window then disposes the process. Wired to <code>Lifetime.ApplicationStopping</code> in <code>Program.cs</code>.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout info">
+      The browser is only started automatically in <strong>non-Development</strong> environments
+      (<code>!app.Environment.IsDevelopment()</code>). When debugging from Visual Studio you launch
+      it yourself.
+    </div>
+  </section>
+
+  <!-- ── DI ── -->
+  <section id="di">
+    <h2><span class="icon">&#128279;</span> Dependency Injection</h2>
+    <p>All registrations in <code>Program.cs</code>:</p>
+    <pre>builder.Services.AddRazorComponents()
+                .AddInteractiveServerComponents();
+
+builder.Services.AddSingleton&lt;AppConfig&gt;();
+builder.Services.AddSingleton&lt;IDbContextFactory, DbContextFactory&gt;();
+
+builder.Services.AddScoped&lt;Repo&gt;();
+builder.Services.AddScoped&lt;State&gt;();
+builder.Services.AddScoped&lt;UpdateService&gt;();
+builder.Services.AddScoped&lt;GraphService&gt;();</pre>
+
+    <div class="callout warn">
+      <strong>Lifetimes matter.</strong> <code>AppConfig</code> and <code>DbContextFactory</code> are
+      Singletons; everything else is Scoped (per Blazor circuit). <code>RepoScope</code> is not
+      DI-registered — it is constructed inline via <code>repo.BeginScope()</code> and disposed via
+      <code>await using</code>.
+    </div>
+  </section>
+
+  <!-- ── IMPORT ── -->
+  <section id="import">
+    <h2><span class="icon">&#128228;</span> Import / Export</h2>
+
+    <p>
+      All imports are triggered from <code>/import</code> (<code>ImportView.razor</code>). Each button turns
+      red after it is clicked so you can see at a glance what has already run in the current session.
+      After every import a success banner shows the number of rows written to the database and disappears
+      automatically after five seconds. All CSV parsing uses the
+      <a href="https://joshclose.github.io/CsvHelper/" target="_blank">CsvHelper</a> library with class maps
+      defined in <code>Classes/Classes.cs</code>.
+    </p>
+
+    <h3>Recommended import order</h3>
+    <p>
+      There are foreign-key dependencies between the tables. Always run the buttons in this sequence on a
+      fresh database — skipping or reversing steps will leave orphaned records:
+    </p>
+    <ol>
+      <li><strong>Tickers</strong> — master list of ticker symbols; everything else references it.</li>
+      <li><strong>Currencies</strong> — currency lookup table referenced by Securities and Portfolio.</li>
+      <li><strong>Transactions</strong> — raw ledger rows; stored by security <em>name</em> (string) at this stage.</li>
+      <li><strong>Securities</strong> — creates Security rows from Tickers and back-links Transactions by name.</li>
+      <li><strong>Portfolio</strong> — current holdings snapshot; links to Securities and Currencies.</li>
+    </ol>
+
+    <!-- ── TICKERS ── -->
+    <h3>1 · Tickers — <code>ImportTicker()</code></h3>
+    <p>
+      <strong>File:</strong> first file matching <code>Ticker*.csv</code> in <code>AppConfig.DownloadsPath</code>.<br>
+      <strong>Class map:</strong> <code>TickerMap</code>
+    </p>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>CSV column</th><th>Maps to</th><th>Notes</th></tr></thead>
+        <tbody>
+          <tr><td><code>ticker</code></td><td><code>Ticker.Symbol</code></td><td>Yahoo Finance ticker symbol, e.g. <code>AAPL</code></td></tr>
+          <tr><td><code>securityname</code></td><td><code>Ticker.Name</code></td><td>Human-readable company name</td></tr>
+          <tr><td><code>currency</code></td><td><code>Ticker.Currency</code></td><td>ISO currency code, e.g. <code>USD</code>, <code>EUR</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p><strong>Deduplication:</strong> all existing <code>Symbol</code> values are loaded into a
+    <code>HashSet&lt;string&gt;</code> before the loop. Any CSV row whose symbol is already present is
+    silently skipped — existing tickers are never updated by this import. Only genuinely new symbols are
+    inserted. This makes the operation safe to re-run at any time.</p>
+
+    <!-- ── CURRENCIES ── -->
+    <h3>2 · Currencies — <code>ImportCurrencies()</code></h3>
+    <p>
+      <strong>File:</strong> first file matching <code>Currencies*.csv</code> in <code>DownloadsPath</code>.<br>
+      <strong>Class map:</strong> <code>CurrencyMap</code>
+    </p>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>CSV column</th><th>Maps to</th><th>Notes</th></tr></thead>
+        <tbody>
+          <tr><td><code>currency</code></td><td><code>Currency.Name</code></td><td>Short name, e.g. <code>USD</code>, <code>GBP</code></td></tr>
+          <tr><td><code>symbol</code></td><td><code>Currency.Symbol</code></td><td>Yahoo FX symbol, e.g. <code>USD=X</code>, <code>GBP=X</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>
+      <strong>Upsert logic:</strong> for each CSV row the code checks whether a <code>Currency</code> with
+      the same <code>Symbol</code> already exists in the database (tracked query inside a
+      <code>RepoScope</code>).
+    </p>
+    <ul>
+      <li><strong>New symbol</strong> — inserted as a new row. If the currency name is <code>"USD"</code>
+          the <code>Rate</code> is forced to <code>1</code> (base currency); all other currencies get the
+          rate that was in the CSV (typically <code>0</code> until the first Yahoo FX update).</li>
+      <li><strong>Existing symbol</strong> — only <code>Symbol</code> and <code>Name</code> are refreshed.
+          The live <code>Rate</code> that Yahoo FX updates write is intentionally left untouched.</li>
+    </ul>
+
+    <!-- ── TRANSACTIONS ── -->
+    <h3>3 · Transactions — <code>ImportTransactions()</code> / <code>ImportTransactionsAsync()</code></h3>
+    <p>
+      <strong>File:</strong> first file matching <code>Transaction*.csv</code> in <code>DownloadsPath</code>.<br>
+      <strong>No class map</strong> — the CSV is read field-by-field because the file contains preamble
+      rows above the real header.
+    </p>
+    <p>
+      <strong>Header detection:</strong> the reader scans rows one by one until it finds a row where
+      column index&nbsp;1 equals <code>"Tran Code"</code>. That row is treated as the header and
+      <code>ReadHeader()</code> is called. All rows before it are ignored. This is robust against
+      brokerage exports that prepend account-level summary lines.
+    </p>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>CSV column</th><th>Maps to</th><th>Processing</th></tr></thead>
+        <tbody>
+          <tr><td><code>Tran Code</code></td><td><code>Transaction.TranCode</code></td><td>Rows with a blank code or a code longer than 4 characters are skipped (footer/summary lines).</td></tr>
+          <tr><td><code>Trade Date</code></td><td><code>Transaction.TradeDate</code></td><td><code>DateRegex()</code> normalises <code>D/M/YY</code> and <code>D/M/YYYY</code> to <code>YYYY-MM-DD</code> before <code>DateOnly.TryParse</code>. Rows with unparseable dates are skipped.</td></tr>
+          <tr><td><code>Quantity</code></td><td><code>Transaction.Quantity</code></td><td>Spaces (thousands separators) and trailing periods are stripped. Decimal values are rounded to <code>int</code>.</td></tr>
+          <tr><td><code>Local Currency</code></td><td><code>Transaction.Currency</code></td><td>Stored as-is, e.g. <code>USD</code>.</td></tr>
+          <tr><td><code>Local Amount</code></td><td><code>Transaction.LocalAmount</code></td><td>Spaces stripped; parsed with <code>NumberStyles.Any</code> and <code>InvariantCulture</code>.</td></tr>
+          <tr><td><code>Description</code></td><td><code>Transaction.Description</code></td><td>Plain text, stored verbatim.</td></tr>
+          <tr><td><code>Security</code></td><td><code>Transaction.Security</code></td><td>Security <em>name</em> string — the FK to <code>SecurityID</code> is <strong>not</strong> set here; that link is created by <strong>ImportSecurities</strong>.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>
+      <strong>Deduplication:</strong> all existing <code>(TradeDate, LocalAmount)</code> pairs are loaded
+      into a <code>HashSet</code> before the loop. A new row is only inserted when that exact pair is not
+      already present. This prevents double-imports when the same transaction file is processed twice, while
+      still allowing two legitimate transactions on the same date if their amounts differ.
+    </p>
+
+    <!-- ── SECURITIES ── -->
+    <h3>4 · Securities — <code>ImportSecurities()</code></h3>
+    <p>
+      <strong>No file required</strong> — this import does not read a CSV. It derives
+      <code>Security</code> rows entirely from the <code>Ticker</code> table that was populated in step 1,
+      then wires up the transactions imported in step 3.
+    </p>
+    <p><strong>Phase 1 — Create Securities from Tickers:</strong></p>
+    <ul>
+      <li>Loads all existing <code>Ticker</code> rows (tracked).</li>
+      <li>Loads all <code>Currency</code> rows and builds a <code>Dictionary&lt;Name, ID&gt;</code> lookup.</li>
+      <li>For each ticker, creates a <code>Security</code> with:
+        <ul>
+          <li><code>TickerID</code> → the ticker's primary key.</li>
+          <li><code>SecurityName</code> → <code>Ticker.Name</code>.</li>
+          <li><code>CurrencyID</code> → looked up from the ticker's <code>Currency</code> string via the
+              currency dictionary (null if not found).</li>
+        </ul>
+      </li>
+      <li>All new Security rows are bulk-inserted with <code>AddRange</code>.</li>
+    </ul>
+    <p><strong>Phase 2 — Back-link Transactions:</strong></p>
+    <ul>
+      <li>Loads all <code>Transaction</code> rows whose <code>Security</code> name matches any of the
+          newly created security names.</li>
+      <li>Groups transactions by their <code>Security</code> name string.</li>
+      <li>For each Security, sets <code>Transaction.SecurityID</code> to the new Security's
+          <code>Id</code> on every matching transaction.</li>
+      <li>A second <code>SaveChangesAsync</code> persists the FK updates.</li>
+    </ul>
+    <p class="note">
+      ⚠ <strong>Run once per ticker batch.</strong> If you later import more Tickers and run
+      ImportSecurities again, it will attempt to insert duplicate Securities because there is no
+      symbol-level deduplication guard in this step. Export Securities to CSV first and check for
+      conflicts before re-running.
+    </p>
+
+    <!-- ── PORTFOLIO ── -->
+    <h3>5 · Portfolio — <code>ImportPortfolio()</code></h3>
+    <p>
+      <strong>File:</strong> first file matching <code>Portfolio*.csv</code> in <code>DownloadsPath</code>.<br>
+      <strong>Class map:</strong> <code>PortfolioMap</code>
+    </p>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>CSV column</th><th>Maps to</th><th>Notes</th></tr></thead>
+        <tbody>
+          <tr><td><code>Quantity</code></td><td><code>Portfolio.Quantity</code></td><td>Decimal in CSV, rounded to <code>int</code>.</td></tr>
+          <tr><td><code>Security Description</code></td><td><code>Portfolio.Security_Description</code></td><td>Used as the match key for upsert and Security lookup.</td></tr>
+          <tr><td><code>Unit Cost</code></td><td><code>Portfolio.Unit_Cost</code></td><td>Cost per share at time of purchase.</td></tr>
+          <tr><td><code>Price</code></td><td><code>Portfolio.Price</code></td><td>Current market price per share.</td></tr>
+          <tr><td><code>Cost</code></td><td><code>Portfolio.Cost</code></td><td>Total cost basis (Quantity × Unit Cost).</td></tr>
+          <tr><td><code>Market Value</code></td><td><code>Portfolio.Market_Value</code></td><td>Current market value (Quantity × Price).</td></tr>
+          <tr><td><code>Pct</code></td><td><code>Portfolio.Pct</code></td><td>% sign stripped before decimal parse.</td></tr>
+          <tr><td><code>P&amp;L %</code></td><td><code>Portfolio.GainPerc</code></td><td>% sign stripped before decimal parse.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p><strong>Row filtering:</strong> rows are silently skipped when:</p>
+    <ul>
+      <li><code>Market_Value == 0</code> — zero-value lines (cash sweeps, expired options, etc.).</li>
+      <li><code>Security_Description == "CONSTELLATION SOFTWARE-WT 40"</code> — a hardcoded exclusion for
+          a known warrant entry that has no tradeable equivalent.</li>
+    </ul>
+    <p><strong>Upsert logic:</strong></p>
+    <ul>
+      <li><strong>Existing row</strong> (matched by <code>Security_Description</code>): if
+          <code>Unit_Cost == Price</code> (meaning the position was just opened and cost equals market
+          price), the <code>Quantity</code> is updated. Otherwise the row is left unchanged — the live
+          price &amp; market value from Yahoo updates take precedence.</li>
+      <li><strong>New row</strong>: a <code>Security</code> is looked up by
+          <code>SecurityName == Security_Description</code>. If found, the new Portfolio row inherits
+          <code>SecurityID</code>, <code>CurrencyID</code>, and <code>Price</code> from the Security.
+          If no Security match exists (e.g. a cash or FX line), <code>MapCurrencyName()</code>
+          derives a currency from the first word of the description:
+          <code>Australian → USD</code>, <code>Euro → EUR</code>, <code>Pound → GBP</code>,
+          <code>US → USD</code>, anything else → <code>USD</code>. Price is set to <code>1</code>.</li>
+    </ul>
+
+    <!-- ── SHARED INFRASTRUCTURE ── -->
+    <h3>Shared infrastructure</h3>
+
+    <h4>CsvConfiguration (<code>CsvConfig()</code>)</h4>
+    <p>All five import paths reuse the same <code>CsvConfiguration</code>:</p>
+    <ul>
+      <li>Header record expected (<code>HasHeaderRecord = true</code>).</li>
+      <li>Comma delimiter, <code>InvariantCulture</code>.</li>
+      <li><code>TrimOptions.Trim</code> — leading/trailing whitespace stripped from every field.</li>
+      <li>Blank lines ignored; bad data and missing fields do not throw — they return <code>null</code>.</li>
+    </ul>
+
+    <h4>Custom type converters</h4>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Converter</th><th>Behaviour</th></tr></thead>
+        <tbody>
+          <tr><td><code>DecimalNullConverter</code></td><td>Strips spaces (thousands separator), then parses with <code>NumberStyles.Any</code> + <code>InvariantCulture</code>. Empty or unparseable input → <code>null</code>.</td></tr>
+          <tr><td><code>IntegerNullConverter</code></td><td>Same stripping logic, parses to <code>int</code>. Empty or unparseable → <code>null</code>.</td></tr>
+          <tr><td><code>CustomDateConverter</code></td><td>Tries <code>yyyy-MM-dd</code> exact match first; falls back to <code>DateTime.TryParse</code> with <code>InvariantCulture</code>. Returns a <code>DateOnly</code>, or <code>null</code> on failure.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h4><code>DateRegex()</code> — date normalisation</h4>
+    <p>
+      Used exclusively by the Transaction import. Matches the pattern
+      <code>\b(\d{1,2})/(\d{1,2})/(\d{2,4})\b</code> and rewrites every match as
+      <code>YYYY-MM-DD</code>, zero-padding day and month and expanding two-digit years with a
+      <code>"20"</code> prefix. The function is called <em>twice</em> on the same string to handle
+      edge cases where two date-like tokens appear in the same field.
+    </p>
+
+    <h4>Feedback — <code>ShowMessage()</code></h4>
+    <p>
+      After every import <code>ShowMessage(int cc)</code> is called with the EF Core
+      <code>SaveChangesAsync</code> return value (number of rows affected). It sets
+      <code>results.Records</code>, triggers a re-render, waits 5 seconds via
+      <code>Task.Delay(5000)</code>, then resets <code>results</code> and triggers another re-render —
+      giving a self-dismissing confirmation banner without any JavaScript.
+    </p>
+
+    <h3>Export</h3>
+    <p>
+      <code>Menu.razor.cs</code> exports <code>Securities</code> and <code>Tickers</code> as plain CSV
+      files written with <code>StreamWriter</code> (no CsvHelper on the write path) directly into
+      <code>AppConfig.DownloadsPath</code>. These export files can be edited and re-imported via the
+      Tickers button if symbols need to be corrected.
+    </p>
+  </section>
+
+  <!-- ── WATCHLIST ── -->
+  <section id="watchlist">
+    <h2><span class="icon">&#128270;</span> Watchlist</h2>
+    <p>
+      The Watchlist lets you track any Yahoo Finance symbol — price history, chart, S&amp;P 500 overlay —
+      without creating a Security, Ticker, or Portfolio entry. Use it to monitor candidates before
+      buying, follow sold positions, or benchmark against any index.
+    </p>
+    <div class="route">/watchlist &nbsp;·&nbsp; <code>WatchlistView.razor</code></div>
+
+    <h3>Data model</h3>
+    <p>
+      A single <code>Watchlist</code> table (<code>WatchlistItems</code> in SQL Server) holds the
+      registry of symbols to track:
+    </p>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Column</th><th>Type</th><th>Purpose</th></tr></thead>
+        <tbody>
+          <tr><td><code>Id</code></td><td><code>INT IDENTITY PK</code></td><td>Surrogate key</td></tr>
+          <tr><td><code>Symbol</code></td><td><code>NVARCHAR(50)</code></td><td>Yahoo Finance ticker, e.g. <code>META</code></td></tr>
+          <tr><td><code>Name</code></td><td><code>NVARCHAR(300)</code></td><td>Human-readable name; auto-fetched from Yahoo if left blank on add</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>
+      Price history is stored in the <strong>existing <code>History</code> table</strong> — the same
+      table used by Securities and the Portfolio series. No separate history table is needed; the
+      <code>Symbol</code> column is the only key.
+    </p>
+    <p>
+      The table is created automatically on startup via an idempotent
+      <code>IF NOT EXISTS … CREATE TABLE</code> statement in <code>Program.cs</code> — no EF Core
+      migration is required.
+    </p>
+
+    <h3>Adding a symbol</h3>
+    <ol>
+      <li>Type the Yahoo Finance ticker into the <strong>Symbol</strong> box (e.g. <code>META</code>).</li>
+      <li>Optionally type a display name. If left blank, Credo fetches <code>LongName</code> from a
+          Yahoo snapshot call automatically.</li>
+      <li>Press <kbd>Enter</kbd> or click <strong>＋ Add</strong>.</li>
+      <li>The symbol is checked for duplicates; a warning is shown if it is already on the list.</li>
+    </ol>
+
+    <h3>Fetching history — <code>UpdateWatchlistHistoryAsync()</code></h3>
+    <p>
+      Click <strong>⟳ Update History</strong> on the Watchlist page, or use
+      <strong>Update → Watchlist History</strong> from the menu. The method:
+    </p>
+    <ol>
+      <li>Loads all <code>Watchlist</code> rows.</li>
+      <li>Builds a <code>HashSet&lt;(Symbol, Date)&gt;</code> from existing <code>History</code> rows
+          to skip already-stored data.</li>
+      <li>For each symbol, determines the last stored date and fetches only the incremental range from
+          Yahoo (back-fill to 5 years before today on first run).</li>
+      <li>Appends a today-snapshot via <code>GetSnapshotAsync</code> to cover the current trading day
+          before Yahoo publishes the official close.</li>
+      <li>Bulk-inserts new rows and saves.</li>
+    </ol>
+    <p>
+      This reuses the same <code>FetchTickerHistoryAsync</code> helper used by
+      <code>UpdateHistoryAsync</code> for Securities, so incremental updates are efficient —
+      only new dates are fetched on subsequent runs.
+    </p>
+
+    <h3>Charting</h3>
+    <p>
+      The chart button (📈) on each row calls <code>GraphService.LoadAdhocTickerDataAsync</code>,
+      which has a <strong>fast path</strong>: if <code>History</code> rows already exist for the
+      symbol the chart renders instantly from the database. The live Yahoo network call is only made
+      for symbols that have never been fetched.
+    </p>
+    <p>
+      The full <code>ChartModal</code> is shown — including the S&amp;P 500 overlay, 50/200 DMA
+      toggles, and percentage/price toggle — exactly the same as for portfolio securities.
+    </p>
+
+    <h3>Removing a symbol</h3>
+    <p>
+      Click <strong>✕</strong> on any row. This removes the <code>Watchlist</code> registry entry
+      only. <strong>History rows are intentionally left in place</strong> so that re-adding the symbol
+      later resumes from where it left off rather than re-downloading years of data.
+    </p>
+
+    <h3>Menu integration</h3>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Menu path</th><th>Action</th></tr></thead>
+        <tbody>
+          <tr><td>View → Watchlist</td><td>Navigate to <code>/watchlist</code></td></tr>
+          <tr><td>Update → Watchlist History</td><td>Run <code>UpdateWatchlistHistoryAsync()</code> with progress overlay</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ── PATTERNS ── -->
+  <section id="patterns">
+    <h2><span class="icon">&#9728;</span> Key Design Patterns</h2>
+
+    <div class="card-grid">
+      <div class="card">
+        <h4>No-Track Reads</h4>
+        <p><code>Repo</code> reads all use <code>AsNoTracking</code> for display-only queries — avoids EF change-tracking overhead and stale cached entities.</p>
+        <span class="badge badge-blue">Performance</span>
+      </div>
+      <div class="card">
+        <h4>Unit-of-Work Writes</h4>
+        <p><code>RepoScope</code> owns one tracked <code>DbContext</code> per write workflow and disposes it as soon as <code>SaveChangesAsync</code> completes.</p>
+        <span class="badge badge-teal">Data Integrity</span>
+      </div>
+      <div class="card">
+        <h4>(Symbol, Date) Natural Key</h4>
+        <p>History uniqueness is enforced in code via <code>HashSet&lt;(string, DateOnly)&gt;</code>. Daily appends are upserts; bulk fetches skip existing.</p>
+        <span class="badge badge-purple">History</span>
+      </div>
+      <div class="card">
+        <h4>LastOnOrBefore Pricing</h4>
+        <p>Portfolio rebuild handles weekends/holidays/IPO gaps by always pulling the most recent price &amp; FX at or before each date.</p>
+        <span class="badge badge-purple">History</span>
+      </div>
+      <div class="card">
+        <h4>Today-Snapshot Top-up</h4>
+        <p>Yahoo daily history lags one day. After backfill, a separate <code>GetSnapshotAsync</code> call inserts today's row for every ticker.</p>
+        <span class="badge badge-purple">History</span>
+      </div>
+      <div class="card">
+        <h4>Event-Driven UI State</h4>
+        <p><code>State</code> uses delegate events as a loose-coupled bus between services and UI.</p>
+        <span class="badge badge-yellow">Decoupling</span>
+      </div>
+      <div class="card">
+        <h4>Machine-Aware Config</h4>
+        <p>Connection strings keyed by machine name (ROG / XPS / Local) so the same codebase runs everywhere without conditional code.</p>
+        <span class="badge badge-blue">DevX</span>
+      </div>
+      <div class="card">
+        <h4>Newton-Raphson XIRR</h4>
+        <p>Custom solver with bisection fallback — no Excel / financial-library dependency. <code>cv</code> close-out synthesises an open position's terminal value.</p>
+        <span class="badge badge-red">Finance</span>
+      </div>
+      <div class="card">
+        <h4>Multi-Currency</h4>
+        <p>FX rates fetched daily; security values normalised to USD via <code>currency.Rate</code> before aggregation and history snapshot.</p>
+        <span class="badge badge-teal">Finance</span>
+      </div>
+      <div class="card">
+        <h4>Code-Behind Separation</h4>
+        <p>Complex pages use <code>*.razor.cs</code> partials; markup stays declarative.</p>
+        <span class="badge badge-yellow">Maintainability</span>
+      </div>
+      <div class="card">
+        <h4>Browser Lifecycle</h4>
+        <p><code>AppConfig.StartBrowser</code> launches Chrome on startup (non-Dev only); <code>StopBrowser</code> is wired to <code>ApplicationStopping</code> + the menu Close action.</p>
+        <span class="badge badge-blue">UX</span>
+      </div>
+      <div class="card">
+        <h4>Static help.html</h4>
+        <p>Served via custom <code>MapGet</code> with explicit UTF-8 so the unicode glyphs in this page render correctly even when IIS / Kestrel guess the encoding wrong.</p>
+        <span class="badge badge-yellow">DevX</span>
+      </div>
+    </div>
+
+    <div class="callout" style="margin-top:24px">
+      <strong>Legacy note:</strong> <code>gData.cs</code> contains an older global-static config that has
+      been superseded by <code>AppConfig.cs</code>. New code should always read configuration from the
+      DI-injected <code>AppConfig</code>.
+    </div>
+  </section>
+
+</main>
+
+<button id="scroll-top" onclick="window.scrollTo({top:0,behavior:'smooth'})" title="Back to top">&#8679;</button>
+
+<script>
+  // Scroll-top button visibility
+  window.addEventListener('scroll', () => {
+    document.getElementById('scroll-top').classList.toggle('visible', window.scrollY > 400);
+  }, { passive: true });
+
+</script>
+</body>
+</html>
