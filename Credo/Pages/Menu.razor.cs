@@ -76,37 +76,7 @@ public partial class Menu
             }
             await scope.SaveChangesAsync();
         }
-        await UpdateSecuritiesNeverSoldXIRR();
         nav.NavigateTo("/portfolio");
-    }
-    private async Task UpdateSecuritiesNeverSoldXIRR()
-    {
-        await using var scope = repo.BeginScope();
-        var secs = await scope.GetEntitiesAsync<Security>();
-        var today = DateOnly.FromDateTime(DateTime.Today);
-        foreach (var sec in secs)
-        {
-            var trs = sec.Transactions.ToList() ?? new List<Transaction>();
-            var notSoldTrs = trs.Where(t => t.TranCode != "sl").ToList();
-            var b = trs.Where(t => t.TranCode == "by" || t.TranCode == "li").Sum(s => s.Quantity);
-            var s = trs.Where(t => t.TranCode == "lo").Sum(s => s.Quantity);
-            var saldo = b - s;
-            if (notSoldTrs.Count == 0)
-            {
-                sec.XIRRNeverSold = 0;
-                continue;
-            }
-            notSoldTrs.Add(new Transaction
-            {
-                TranCode = "cv",
-                TradeDate = today,
-                LocalAmount = sec.Price * saldo
-            });
-            var irr = XirrCalculator.CalculateXirr(notSoldTrs);
-            if (!double.IsNaN(irr))
-                sec.XIRRNeverSold = (decimal)irr * 100;
-        }
-        await scope.SaveChangesAsync();
     }
     private async Task Test()
     {

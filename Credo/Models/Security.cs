@@ -24,7 +24,6 @@ public class Security
     public decimal? PrevClose { get; set; }
     public decimal? ChangePercent { get; set; }
     public decimal? XIRR { get; set; }
-    public decimal? XIRRNeverSold { get; set; }
     public decimal? Gain { get; set; }
     public decimal? DividendYield { get; set; }
     public decimal? EPS { get; set; }//Earnings / share for the last 12 months; Netto Income (Earnings) / Outstanding Stock (Trailing) in conrast to EpsForward (estimate)

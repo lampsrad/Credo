@@ -104,8 +104,18 @@ public partial class SecuritiesView
     private void ComputeSpyPerf()
     {
         if (Securities is null || SpyPrices.Count == 0) return;
+        var today = DateOnly.FromDateTime(DateTime.Today);
         foreach (var sec in Securities)
         {
+            var firstBuy = sec.Transactions.Where(t => t.TranCode == "by" || t.TranCode == "li")
+                                           .Select(t => (DateOnly?)t.TradeDate).Min();
+            var heldOneYear = firstBuy.HasValue &&
+                              (today.DayNumber - firstBuy.Value.DayNumber) >= 365;
+            if (!heldOneYear)
+            {
+                sec.SpyPerf = null;
+                continue;
+            }
             var rate = sec.Currency != "USD=X" ? (sec.currency?.Rate ?? 1m) : 1m;
             var xirr = XirrCalculator.CalculateSpyXirr(sec.Transactions.ToList(), SpyPrices, rate);
             if (!double.IsNaN(xirr))
