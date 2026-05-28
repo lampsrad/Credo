@@ -121,10 +121,12 @@ public partial class ImportView
                 .Where(p => p.Security_Description is not null)
                 .ToDictionary(p => p.Security_Description!, p => p);
             var portfs = new List<Portfolio>();
+            var seenDescriptions = new HashSet<string>();
             await foreach (var port in csv.GetRecordsAsync<Portfolio>())
             {
                 if (port.Market_Value == 0 || port.Security_Description == "CONSTELLATION SOFTWARE-WT 40")
                     continue;
+                seenDescriptions.Add(port.Security_Description ?? string.Empty);
                 if (existingPortfs.TryGetValue(port.Security_Description ?? string.Empty, out var existing))
                 {
                     if (port.Unit_Cost == port.Price)
@@ -143,6 +145,11 @@ public partial class ImportView
                 }
                 portfs.Add(port);
             }
+            var toDelete = existingPortfs
+                .Where(kvp => !seenDescriptions.Contains(kvp.Key))
+                .Select(kvp => kvp.Value)
+                .ToList();
+            scope.RemoveRange(toDelete);
             scope.AddRange(portfs);
             var cc = await scope.SaveChangesAsync();
             await ShowMessage(cc);
@@ -162,12 +169,17 @@ public partial class ImportView
         var currencies = (await scope.GetEntitiesAsync<Currency>())
             .Where(c => c.Name is not null)
             .ToDictionary(c => c.Name!, c => c.ID);
-        var secs = ticks.Select(t => new Security
-        {
-            TickerID = t.ID,
-            CurrencyID = t.Currency is not null && currencies.TryGetValue(t.Currency, out var curId) ? curId : (int?)null,
-            SecurityName = t.Name
-        }).ToList();
+        var existingTickerIDs = (await scope.GetEntitiesAsync<Security>())
+            .Select(s => s.TickerID)
+            .ToHashSet();
+        var secs = ticks
+            .Where(t => !existingTickerIDs.Contains(t.ID))
+            .Select(t => new Security
+            {
+                TickerID = t.ID,
+                CurrencyID = t.Currency is not null && currencies.TryGetValue(t.Currency, out var curId) ? curId : (int?)null,
+                SecurityName = t.Name
+            }).ToList();
         scope.AddRange(secs);
         int cc = await scope.SaveChangesAsync();
 
