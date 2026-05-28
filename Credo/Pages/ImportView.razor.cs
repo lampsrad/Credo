@@ -124,13 +124,13 @@ public partial class ImportView
             var seenDescriptions = new HashSet<string>();
             await foreach (var port in csv.GetRecordsAsync<Portfolio>())
             {
-                if (port.Market_Value == 0 || port.Security_Description == "CONSTELLATION SOFTWARE-WT 40")
+                if (string.IsNullOrWhiteSpace(port.Security_Description) || port.Market_Value == 0 || port.Security_Description == "CONSTELLATION SOFTWARE-WT 40")
                     continue;
                 seenDescriptions.Add(port.Security_Description ?? string.Empty);
                 if (existingPortfs.TryGetValue(port.Security_Description ?? string.Empty, out var existing))
                 {
-                    if (port.Unit_Cost == port.Price)
-                        existing.Quantity = port.Quantity;
+                    existing.Quantity = port.Quantity;
+                    existing.Market_Value = port.Market_Value;
                     continue;
                 }
                 var sec = await repo.GetEntityNTAsync<Security>(s => s.SecurityName == port.Security_Description);
@@ -157,7 +157,8 @@ public partial class ImportView
         catch (Exception ex)
         {
             logger.LogError(ex, "ImportPortfolio failed");
-            await ShowMessage(0);
+            results.Errors.Add(ex.Message);
+            StateHasChanged();
         }
     }
     private async Task ImportSecurities()

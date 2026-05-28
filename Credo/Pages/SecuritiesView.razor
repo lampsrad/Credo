@@ -24,7 +24,6 @@
                 <thead>
                     <tr>
                         <th title="Ticker">Symbol</th>
-                        <th title="Exchage were stock is listed">Exchange</th>
                         <th @onclick="@(() => SortData("Security"))" style="cursor:pointer">
                             Security @if (sortColumn == "Security") {
                             <span>@(sortAscending ? "▲" : "▼")</span>
@@ -53,8 +52,8 @@
                 <span>@(sortAscending ? "▲" : "▼")</span>
             }
         </th>
-        <th @onclick="@(() => SortData("XIRR"))" style="cursor:pointer" title="Annualized Investment Return after Cost of Money was taken in consideration and NPV=0; Includes Dividends and Interest. Green if better S&P500 else Red; Nothing if < 1 year">
-            XIRR @if (sortColumn == "XIRR") {
+        <th @onclick="@(() => SortData("CAGR"))" style="cursor:pointer" title="Annualized Investment Return after Cost of Money was taken in consideration and NPV=0; Includes Dividends and Interest. Green if better S&P500 else Red; Nothing if < 1 year">
+            CAGR @if (sortColumn == "CAGR") {
             <span>@(sortAscending ? "▲" : "▼")</span>
         }
     </th>
@@ -78,7 +77,6 @@
                         @onclick:stopPropagation>📈</button>
                 @s.ticker?.Symbol
             </td>
-            <td>@s.Exchange</td>
             <td @onclick="((e) => SecurityClicked(e, s))" class="@(s.Selected ? "bg-primary" : hasPosition ? "text-primary" : "")" style="cursor: pointer; user-select: none;">@s.ticker?.Name</td>
             <td class="@(s.Selected ? "bg-primary" : "")">@s.Currency</td>
             <td class="text-end">

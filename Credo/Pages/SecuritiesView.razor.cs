@@ -256,7 +256,7 @@ public partial class SecuritiesView
             "GainPerc" => sortAscending
           ? Securities.OrderBy(t => t.GainPerc).ToList()
           : Securities.OrderByDescending(t => t.GainPerc).ToList(),
-            "XIRR" => sortAscending
+            "CAGR" => sortAscending
                 ? Securities.OrderBy(t => t.XIRR).ToList()
                 : Securities.OrderByDescending(t => t.XIRR).ToList(),
             "PE" => sortAscending
