@@ -105,10 +105,10 @@
                                 Gain% <span class="sort-glyph" aria-hidden="true">@SortGlyph("GainPercentage")</span>
                             </button>
                         </th>
-                        <th aria-sort="@AriaSort("IRR")"
+                        <th aria-sort="@AriaSort("CAGR")"
                             title="Annualized Return after Cost of Money was taken in consideration and NPV=0. Includes Dividends and Interest.">
-                            <button class="sort-btn" type="button" @onclick="@(() => SortData("IRR"))">
-                                IRR% <span class="sort-glyph" aria-hidden="true">@SortGlyph("IRR")</span>
+                            <button class="sort-btn" type="button" @onclick="@(() => SortData("CAGR"))">
+                                CAGR<span class="sort-glyph" aria-hidden="true">@SortGlyph("CAGR")</span>
                             </button>
                         </th>
                         <th aria-sort="@AriaSort("Percentage")" title="Percentage of Portfolio">

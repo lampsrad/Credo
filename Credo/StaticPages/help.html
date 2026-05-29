@@ -1352,11 +1352,24 @@ builder.Services.AddScoped&lt;GraphService&gt;();</pre>
       rows above the real header.
     </p>
     <p>
-      <strong>Header detection:</strong> the reader scans rows one by one until it finds a row where
-      column index&nbsp;1 equals <code>"Tran Code"</code>. That row is treated as the header and
-      <code>ReadHeader()</code> is called. All rows before it are ignored. This is robust against
-      brokerage exports that prepend account-level summary lines.
+      <strong>Signature:</strong> <code>public async Task&lt;int&gt; ImportTransactionsAsync()</code> — the
+      async core that returns the number of rows actually saved. The UI wrapper
+      <code>ImportTransactions()</code> sets the busy flag <code>b3</code>, awaits this method, and passes the
+      result to <code>ShowMessage()</code>.
     </p>
+    <p><strong>Execution flow:</strong></p>
+    <ol>
+      <li><strong>Config guard</strong> — if <code>AppConfig.DownloadsPath</code> is empty, returns <code>0</code>.</li>
+      <li><strong>Locate file</strong> — first file matching <code>Transaction*.csv</code>; if none, returns <code>0</code>.</li>
+      <li><strong>Open reader</strong> — <code>StreamReader</code> + <code>CsvReader</code> using the shared <code>CsvConfig()</code>.</li>
+      <li><strong>Header detection</strong> — scans rows one by one until column index&nbsp;1 equals
+          <code>"Tran Code"</code>, then calls <code>ReadHeader()</code>. All rows before it are ignored
+          (robust against brokerage exports that prepend account-level summary lines). If the header is
+          never found, returns <code>0</code>.</li>
+      <li><strong>Load dedup set</strong> — all existing <code>(TradeDate, LocalAmount)</code> pairs into a <code>HashSet</code>.</li>
+      <li><strong>Row loop</strong> — builds <code>Transaction</code> objects, skipping invalid/duplicate rows (see tables below).</li>
+      <li><strong>Persist</strong> — <code>AddRange</code> + <code>SaveChangesAsync()</code>, returning the saved count.</li>
+    </ol>
     <div class="tbl-wrap">
       <table>
         <thead><tr><th>CSV column</th><th>Maps to</th><th>Processing</th></tr></thead>
@@ -1371,11 +1384,21 @@ builder.Services.AddScoped&lt;GraphService&gt;();</pre>
         </tbody>
       </table>
     </div>
+    <p><strong>Row-skip conditions</strong> (a row is silently skipped if any apply):</p>
+    <ul>
+      <li><code>Tran Code</code> is blank, or longer than 4 characters (footer/summary lines).</li>
+      <li><code>Trade Date</code> is blank, or cannot be parsed after normalisation.</li>
+      <li>The <code>(TradeDate, LocalAmount)</code> pair already exists (deduplication).</li>
+    </ul>
     <p>
       <strong>Deduplication:</strong> all existing <code>(TradeDate, LocalAmount)</code> pairs are loaded
       into a <code>HashSet</code> before the loop. A new row is only inserted when that exact pair is not
       already present. This prevents double-imports when the same transaction file is processed twice, while
       still allowing two legitimate transactions on the same date if their amounts differ.
+    </p>
+    <p class="note">
+      Note: <code>DateRegex</code> is applied twice (<code>DateRegex(DateRegex(rawDate))</code>) on the raw
+      date string before parsing.
     </p>
 
     <!-- ── SECURITIES ── -->

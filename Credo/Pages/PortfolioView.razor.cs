@@ -200,7 +200,7 @@ private void ToggleChecked(int id)
             "Change" => sortAscending
                 ? Portfs.OrderBy(t => t.security?.ChangePercent).ToList()
                 : Portfs.OrderByDescending(t => t.security?.ChangePercent).ToList(),
-            "IRR" => sortAscending
+            "CAGR" => sortAscending
                 ? Portfs.OrderBy(t => t.IRR).ToList()
                 : Portfs.OrderByDescending(t => t.IRR).ToList(),
             "MarketValue" => sortAscending
