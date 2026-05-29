@@ -8,16 +8,17 @@ public partial class Expenses
 {
     [Inject] Repo repo { get; set; } = default!;
 
-    private static readonly HashSet<string> ExcludedCodes = ["by", "li", "lo", "sl"];
+    private static readonly HashSet<string> ExcludedCodes = ["by", "sl", "li" , "dv", "in"];
 
     private IList<Transaction> allItems = [];
     private IList<Transaction>? Items { get; set; }
     private Dictionary<string, decimal> fxRates = [];
-    private decimal Total { get; set; }
     private string sortColumn = "TDate";
     private bool sortAscending = true;
-    private string selectedCode = "";
+    private HashSet<string> selectedCodes = [];
+    private bool dropdownOpen = false;
     private IList<string> AvailableCodes { get; set; } = [];
+    private string FilterLabel => selectedCodes.Count == 0 ? "All" : string.Join(", ", selectedCodes.Order());
 
     protected override async Task OnInitializedAsync()
     {
@@ -27,7 +28,7 @@ public partial class Expenses
             .ToDictionary(c => c.Name!, c => c.Rate);
 
         allItems = await repo.GetEntitiesNTAsync<Transaction>(
-            t => t.TranCode != null && !ExcludedCodes.Contains(t.TranCode));
+            t => t.TranCode != null &&t.SecurityID==null && !ExcludedCodes.Contains(t.TranCode));
         AvailableCodes = allItems
             .Select(t => t.TranCode!)
             .Distinct()
@@ -35,22 +36,20 @@ public partial class Expenses
             .ToList();
         ApplyFilter();
     }
-
-    private void OnCodeFilter(ChangeEventArgs e)
+    private void ToggleDropdown() => dropdownOpen = !dropdownOpen;
+    private void ToggleCode(string code)
     {
-        selectedCode = e.Value?.ToString() ?? "";
+        if (!selectedCodes.Remove(code))
+            selectedCodes.Add(code);
         ApplyFilter();
     }
-
     private void ApplyFilter()
     {
-        Items = string.IsNullOrEmpty(selectedCode)
+        Items = selectedCodes.Count == 0
             ? allItems
-            : allItems.Where(t => t.TranCode == selectedCode).ToList();
-        Total = Items.Sum(t => ToGbp(t.Currency, t.LocalAmount ?? 0));
+            : allItems.Where(t => t.TranCode != null && selectedCodes.Contains(t.TranCode)).ToList();
         SortData();
     }
-
     // Rate is stored as USD per 1 unit of the currency.
     // e.g. GBP rate ≈ 1.27 → £1 = $1.27;  USD rate = 1.
     private decimal ToUsd(string? currency, decimal amount)
@@ -60,19 +59,6 @@ public partial class Expenses
             return amount * rate;
         return amount;
     }
-
-    private decimal ToGbp(string? currency, decimal amount)
-    {
-        if (currency == null || currency == "GBP") return amount;
-        var usd = ToUsd(currency, amount);
-        if (fxRates.TryGetValue("GBP", out var gbpRate) && gbpRate != 0)
-            return usd / gbpRate;
-        return usd;
-    }
-
-    private decimal YearLocTotal(IGrouping<int, Transaction> yr) =>
-        yr.Sum(t => ToGbp(t.Currency, t.LocalAmount ?? 0));
-
     private static CultureInfo CultureFor(string? currency) => currency switch
     {
         "USD" => new CultureInfo("en-US"),
@@ -83,7 +69,6 @@ public partial class Expenses
         "HKD" => new CultureInfo("en-HK"),
         _ => new CultureInfo("en-US")
     };
-
     private void SortData(string? column = null)
     {
         if (Items is null) return;

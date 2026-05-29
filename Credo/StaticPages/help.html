@@ -1347,9 +1347,17 @@ builder.Services.AddScoped&lt;GraphService&gt;();</pre>
     <!-- ── TRANSACTIONS ── -->
     <h3>3 · Transactions — <code>ImportTransactions()</code> / <code>ImportTransactionsAsync()</code></h3>
     <p>
-      <strong>File:</strong> first file matching <code>Transaction*.csv</code> in <code>DownloadsPath</code>.<br>
-      <strong>No class map</strong> — the CSV is read field-by-field because the file contains preamble
+      <strong>File:</strong> the broker's native <code>Transaction*.xlsx</code> in <code>DownloadsPath</code> is
+      <strong>preferred</strong>; if none is found, it falls back to <code>Transaction*.csv</code>.<br>
+      <strong>No class map</strong> — both formats are read field-by-field because the file contains preamble
       rows above the real header.
+    </p>
+    <p class="note">
+      <strong>Why <code>.xlsx</code> first?</strong> The broker's dates are UK <code>dd/mm/yy</code> text. When Excel
+      saves that workbook as <code>.csv</code>, it silently reinterprets and rewrites the dates to ISO with the day
+      and year swapped (e.g. <code>10/02/16</code> &rarr; <code>2010-02-16</code>, <code>31/07/17</code> &rarr;
+      <code>2031-07-17</code>). Reading the native <code>.xlsx</code> avoids this corruption because the cells stay
+      as the original <code>dd/mm/yy</code> strings.
     </p>
     <p>
       <strong>Signature:</strong> <code>public async Task&lt;int&gt; ImportTransactionsAsync()</code> — the
@@ -1360,27 +1368,44 @@ builder.Services.AddScoped&lt;GraphService&gt;();</pre>
     <p><strong>Execution flow:</strong></p>
     <ol>
       <li><strong>Config guard</strong> — if <code>AppConfig.DownloadsPath</code> is empty, returns <code>0</code>.</li>
-      <li><strong>Locate file</strong> — first file matching <code>Transaction*.csv</code>; if none, returns <code>0</code>.</li>
-      <li><strong>Open reader</strong> — <code>StreamReader</code> + <code>CsvReader</code> using the shared <code>CsvConfig()</code>.</li>
-      <li><strong>Header detection</strong> — scans rows one by one until column index&nbsp;1 equals
-          <code>"Tran Code"</code>, then calls <code>ReadHeader()</code>. All rows before it are ignored
-          (robust against brokerage exports that prepend account-level summary lines). If the header is
-          never found, returns <code>0</code>.</li>
-      <li><strong>Load dedup set</strong> — all existing <code>(TradeDate, LocalAmount)</code> pairs into a <code>HashSet</code>.</li>
-      <li><strong>Row loop</strong> — builds <code>Transaction</code> objects, skipping invalid/duplicate rows (see tables below).</li>
-      <li><strong>Persist</strong> — <code>AddRange</code> + <code>SaveChangesAsync()</code>, returning the saved count.</li>
+      <li><strong>Locate file</strong> — first file matching <code>Transaction*.xlsx</code>; if none, first
+          <code>Transaction*.csv</code>; if neither, returns <code>0</code>.</li>
+      <li><strong>Read rows</strong> — the matched file is parsed into a list of <code>TxRow</code> records
+          (one neutral shape for both formats):
+          <ul>
+            <li><code>ReadXlsxRows()</code> — opens the <code>.xlsx</code> (a ZIP archive) with
+                <code>System.IO.Compression.ZipFile</code>, loads <code>xl/worksheets/sheet1.xml</code> with
+                <code>System.Xml.Linq.XDocument</code>, and reads each <code>&lt;row&gt;</code> cell by its column
+                letter (from the cell's <code>r</code> attribute). Both inline strings (<code>&lt;is&gt;&lt;t&gt;</code>)
+                and value cells (<code>&lt;v&gt;</code>) are handled. <em>No third-party library is needed</em> — only
+                in-framework types. Column mapping: <code>B</code>=Tran&nbsp;Code, <code>D</code>=Description,
+                <code>F</code>=Security, <code>H</code>=Trade&nbsp;Date, <code>L</code>=Quantity,
+                <code>N</code>=Local&nbsp;Currency, <code>Q</code>=Local&nbsp;Amount.</li>
+            <li><code>ReadCsvRows()</code> (fallback) — <code>StreamReader</code> + <code>CsvReader</code> using the
+                shared <code>CsvConfig()</code>, scanning rows until column index&nbsp;1 equals <code>"Tran Code"</code>,
+                then <code>ReadHeader()</code>. All preamble rows are ignored; if the header is never found, returns
+                an empty list.</li>
+          </ul>
+      </li>
+      <li><strong>Save rows</strong> — both readers feed the shared <code>SaveTxRowsAsync()</code>:
+        <ol>
+          <li><strong>Load dedup set</strong> — all existing <code>(TradeDate, LocalAmount)</code> pairs into a <code>HashSet</code>.</li>
+          <li><strong>Row loop</strong> — builds <code>Transaction</code> objects, skipping invalid/duplicate rows (see tables below).</li>
+          <li><strong>Persist</strong> — <code>AddRange</code> + <code>SaveChangesAsync()</code>, returning the saved count.</li>
+        </ol>
+      </li>
     </ol>
     <div class="tbl-wrap">
       <table>
-        <thead><tr><th>CSV column</th><th>Maps to</th><th>Processing</th></tr></thead>
+        <thead><tr><th>Column <small>(xlsx&nbsp;letter / csv&nbsp;header)</small></th><th>Maps to</th><th>Processing</th></tr></thead>
         <tbody>
-          <tr><td><code>Tran Code</code></td><td><code>Transaction.TranCode</code></td><td>Rows with a blank code or a code longer than 4 characters are skipped (footer/summary lines).</td></tr>
-          <tr><td><code>Trade Date</code></td><td><code>Transaction.TradeDate</code></td><td><code>DateRegex()</code> normalises <code>D/M/YY</code> and <code>D/M/YYYY</code> to <code>YYYY-MM-DD</code> before <code>DateOnly.TryParse</code>. Rows with unparseable dates are skipped.</td></tr>
-          <tr><td><code>Quantity</code></td><td><code>Transaction.Quantity</code></td><td>Spaces (thousands separators) and trailing periods are stripped. Decimal values are rounded to <code>int</code>.</td></tr>
-          <tr><td><code>Local Currency</code></td><td><code>Transaction.Currency</code></td><td>Stored as-is, e.g. <code>USD</code>.</td></tr>
-          <tr><td><code>Local Amount</code></td><td><code>Transaction.LocalAmount</code></td><td>Spaces stripped; parsed with <code>NumberStyles.Any</code> and <code>InvariantCulture</code>.</td></tr>
-          <tr><td><code>Description</code></td><td><code>Transaction.Description</code></td><td>Plain text, stored verbatim.</td></tr>
-          <tr><td><code>Security</code></td><td><code>Transaction.Security</code></td><td>Security <em>name</em> string — the FK to <code>SecurityID</code> is <strong>not</strong> set here; that link is created by <strong>ImportSecurities</strong>.</td></tr>
+          <tr><td><code>B</code> / <code>Tran Code</code></td><td><code>Transaction.TranCode</code></td><td>Rows with a blank code or a code longer than 4 characters are skipped (footer/summary lines).</td></tr>
+          <tr><td><code>H</code> / <code>Trade Date</code></td><td><code>Transaction.TradeDate</code></td><td><code>DateRegex()</code> normalises <code>D/M/YY</code> and <code>D/M/YYYY</code> to <code>YYYY-MM-DD</code> before <code>DateOnly.TryParse</code>. Rows with unparseable dates are skipped.</td></tr>
+          <tr><td><code>L</code> / <code>Quantity</code></td><td><code>Transaction.Quantity</code></td><td>Spaces (thousands separators) and trailing periods are stripped. Decimal values are rounded to <code>int</code>.</td></tr>
+          <tr><td><code>N</code> / <code>Local Currency</code></td><td><code>Transaction.Currency</code></td><td>Stored as-is, e.g. <code>USD</code>.</td></tr>
+          <tr><td><code>Q</code> / <code>Local Amount</code></td><td><code>Transaction.LocalAmount</code></td><td>Spaces stripped; parsed with <code>NumberStyles.Any</code> and <code>InvariantCulture</code>.</td></tr>
+          <tr><td><code>D</code> / <code>Description</code></td><td><code>Transaction.Description</code></td><td>Plain text, stored verbatim.</td></tr>
+          <tr><td><code>F</code> / <code>Security</code></td><td><code>Transaction.Security</code></td><td>Security <em>name</em> string — the FK to <code>SecurityID</code> is <strong>not</strong> set here; that link is created by <strong>ImportSecurities</strong>.</td></tr>
         </tbody>
       </table>
     </div>
@@ -1396,6 +1421,13 @@ builder.Services.AddScoped&lt;GraphService&gt;();</pre>
       already present. This prevents double-imports when the same transaction file is processed twice, while
       still allowing two legitimate transactions on the same date if their amounts differ.
     </p>
+    <p>
+      <strong>Detail rows (<code>lo</code> + <code>CASH</code> rule):</strong> rows whose code is longer than 4
+      characters are normally skipped as footer/detail text. However, when the <em>previous</em> kept transaction
+      had code <code>lo</code> and a <code>Security</code> starting with <code>CASH</code>, the following detail
+      row's text replaces that transaction's <code>Security</code> — giving the cash movement a meaningful name
+      instead of the generic <code>CASH</code> placeholder.
+    </p>
     <p class="note">
       Note: <code>DateRegex</code> is applied twice (<code>DateRegex(DateRegex(rawDate))</code>) on the raw
       date string before parsing.
@@ -1403,40 +1435,263 @@ builder.Services.AddScoped&lt;GraphService&gt;();</pre>
 
     <!-- ── SECURITIES ── -->
     <h3>4 · Securities — <code>ImportSecurities()</code></h3>
+
     <p>
-      <strong>No file required</strong> — this import does not read a CSV. It derives
-      <code>Security</code> rows entirely from the <code>Ticker</code> table that was populated in step 1,
-      then wires up the transactions imported in step 3.
+      <strong>No file required.</strong> Unlike every other import button, <code>ImportSecurities</code>
+      reads no CSV and needs no file in the Downloads folder. Instead it acts as a <em>data-linking
+      step</em>: it creates <code>Security</code> rows by projecting the <code>Ticker</code> table that
+      was populated in Step&nbsp;1, and it then repairs the foreign-key gap left by Step&nbsp;3 by
+      setting <code>Transaction.SecurityID</code> on every transaction whose <code>Security</code>
+      name-string matches a newly created Security.
     </p>
-    <p><strong>Phase 1 — Create Securities from Tickers:</strong></p>
-    <ul>
-      <li>Loads all existing <code>Ticker</code> rows (tracked).</li>
-      <li>Loads all <code>Currency</code> rows and builds a <code>Dictionary&lt;Name, ID&gt;</code> lookup.</li>
-      <li>For each ticker, creates a <code>Security</code> with:
-        <ul>
-          <li><code>TickerID</code> → the ticker's primary key.</li>
-          <li><code>SecurityName</code> → <code>Ticker.Name</code>.</li>
-          <li><code>CurrencyID</code> → looked up from the ticker's <code>Currency</code> string via the
-              currency dictionary (null if not found).</li>
-        </ul>
+    <p>
+      The method is split into two sequential phases, each ending with its own
+      <code>SaveChangesAsync</code> call inside a single <code>RepoScope</code>.
+    </p>
+
+    <div class="pipeline">
+      <div class="step">
+        <span class="num">1</span><span class="ttl">Load reference data</span>
+        <div class="desc">Read all Tickers, all Currencies (build name→ID dict), and collect every existing SecurityID to build a skip-set.</div>
+      </div>
+      <div class="step">
+        <span class="num">2</span><span class="ttl">Project new Securities</span>
+        <div class="desc">For each Ticker whose ID is not in the skip-set, create a Security row with TickerID, SecurityName, and CurrencyID.</div>
+      </div>
+      <div class="step">
+        <span class="num">3</span><span class="ttl">SaveChanges #1</span>
+        <div class="desc">Bulk-insert all new Security rows; EF assigns their auto-generated <code>Id</code> values.</div>
+      </div>
+      <div class="step">
+        <span class="num">4</span><span class="ttl">Back-link Transactions</span>
+        <div class="desc">Load Transactions matching the new SecurityNames, set <code>Transaction.SecurityID</code> on each.</div>
+      </div>
+      <div class="step">
+        <span class="num">5</span><span class="ttl">SaveChanges #2</span>
+        <div class="desc">Persist the FK updates to the Transactions table; show the row count from step&nbsp;3.</div>
+      </div>
+    </div>
+
+    <h4 class="sub">Phase 1 — Create Security rows from Tickers</h4>
+
+    <p>
+      The code opens a <code>RepoScope</code> and loads three datasets in parallel before touching anything:
+    </p>
+    <ol class="numbered">
+      <li>
+        <strong>All <code>Ticker</code> rows</strong> (tracked) — the master list of symbols and
+        human-readable names. Every Ticker that does not already have a corresponding Security will become one.
       </li>
-      <li>All new Security rows are bulk-inserted with <code>AddRange</code>.</li>
-    </ul>
-    <p><strong>Phase 2 — Back-link Transactions:</strong></p>
-    <ul>
-      <li>Loads all <code>Transaction</code> rows whose <code>Security</code> name matches any of the
-          newly created security names.</li>
-      <li>Groups transactions by their <code>Security</code> name string.</li>
-      <li>For each Security, sets <code>Transaction.SecurityID</code> to the new Security's
-          <code>Id</code> on every matching transaction.</li>
-      <li>A second <code>SaveChangesAsync</code> persists the FK updates.</li>
-    </ul>
-    <p class="note">
-      ⚠ <strong>Run once per ticker batch.</strong> If you later import more Tickers and run
-      ImportSecurities again, it will attempt to insert duplicate Securities because there is no
-      symbol-level deduplication guard in this step. Export Securities to CSV first and check for
-      conflicts before re-running.
+      <li>
+        <strong>All <code>Currency</code> rows</strong> (tracked) — filtered to those with a non-null
+        <code>Name</code>. Built into a <code>Dictionary&lt;string, int&gt;</code> keyed by
+        <code>Currency.Name</code> (e.g. <code>"USD"</code>, <code>"GBP"</code>) mapping to
+        <code>Currency.ID</code>.
+      </li>
+      <li>
+        <strong>All existing <code>Security</code> rows</strong> — only their <code>TickerID</code>
+        values are taken, projected into a <code>HashSet&lt;int?&gt;</code> called
+        <code>existingTickerIDs</code>. This is the deduplication guard.
+      </li>
+    </ol>
+
+    <p>The new Securities are then projected from the Tickers in a single LINQ statement:</p>
+    <pre>var secs = ticks
+    .Where(t =&gt; !existingTickerIDs.Contains(t.ID))   // skip tickers already linked
+    .Select(t =&gt; new Security
+    {
+        TickerID     = t.ID,
+        CurrencyID   = t.Currency != null &amp;&amp;
+                       currencies.TryGetValue(t.Currency, out var curId)
+                       ? curId : (int?)null,
+        SecurityName = t.Name
+    }).ToList();</pre>
+
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Security field</th><th>Source</th><th>Notes</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><code>TickerID</code></td>
+            <td><code>Ticker.ID</code></td>
+            <td>Primary navigation link — all Yahoo snapshot updates follow this FK to find the symbol.</td>
+          </tr>
+          <tr>
+            <td><code>SecurityName</code></td>
+            <td><code>Ticker.Name</code></td>
+            <td>Used as the text match key in Phase&nbsp;2 to link Transactions. Must be identical to the <code>Security</code> string stored in the Transaction ledger rows.</td>
+          </tr>
+          <tr>
+            <td><code>CurrencyID</code></td>
+            <td><code>currencies[Ticker.Currency]</code></td>
+            <td>Looked up by the ticker's ISO currency code (e.g. <code>"GBP"</code>). If the Ticker has no currency string, or the code is not in the dictionary, this field is set to <code>null</code> — the Security is created without a currency FK and will be skipped by FX-conversion code until corrected.</td>
+          </tr>
+          <tr>
+            <td><code>Price</code>, <code>XIRR</code>, all other fields</td>
+            <td>—</td>
+            <td>Left as <code>null</code> / default. Populated later by <strong>Update All</strong> (Yahoo snapshot) and <strong>SecuritiesXIRR</strong>.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>
+      After the LINQ projection, <code>scope.AddRange(secs)</code> stages all new rows for insertion.
+      <code>await scope.SaveChangesAsync()</code> flushes them and — critically — EF Core populates the
+      auto-generated <code>Security.Id</code> on each object in the list. Those IDs are immediately needed
+      for Phase&nbsp;2.
     </p>
+
+    <h4 class="sub">Phase 2 — Back-link Transactions to the new Securities</h4>
+
+    <p>
+      When Transactions are imported in Step&nbsp;3, they are stored with only a plain text
+      <code>Transaction.Security</code> string (e.g. <code>"APPLE INC"</code>). The
+      <code>Transaction.SecurityID</code> foreign key is left <code>null</code> at that stage because
+      the Security rows do not yet exist. <code>ImportSecurities</code> closes that gap.
+    </p>
+    <ol class="numbered">
+      <li>
+        Collect the <code>SecurityName</code> values of all newly created Securities into a
+        <code>List&lt;string?&gt;</code> called <code>secNames</code>.
+      </li>
+      <li>
+        Query the <code>Transactions</code> table for every row whose <code>Security</code> string is
+        contained in <code>secNames</code>:
+        <pre>var transByName = (await scope.GetEntitiesAsync&lt;Transaction&gt;(
+        t =&gt; secNames.Contains(t.Security)))
+    .Where(t =&gt; t.Security is not null)
+    .GroupBy(t =&gt; t.Security!)
+    .ToDictionary(g =&gt; g.Key, g =&gt; g.ToList());</pre>
+        This loads only Transactions for the <em>newly created</em> securities — not the entire ledger.
+      </li>
+      <li>
+        For each new Security, look up its matching group in <code>transByName</code> and set
+        <code>Transaction.SecurityID = security.Id</code> on every transaction in the group.
+      </li>
+      <li>
+        A second <code>await scope.SaveChangesAsync()</code> persists the FK updates. The
+        <code>ShowMessage</code> call that follows uses the row count from the <em>first</em>
+        <code>SaveChangesAsync</code> (the number of Securities created), not the second.
+      </li>
+    </ol>
+
+    <p>
+      After this step, Portfolio rows can be linked to Securities (Step&nbsp;5), and the full
+      XIRR / chart / history pipeline becomes available for each new Security.
+    </p>
+
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Before ImportSecurities</th><th>After ImportSecurities</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><code>Transaction.SecurityID = null</code><br><code>Transaction.Security = "APPLE INC"</code></td>
+            <td><code>Transaction.SecurityID = 42</code> (EF-assigned ID)<br><code>Transaction.Security = "APPLE INC"</code> (unchanged)</td>
+          </tr>
+          <tr>
+            <td>No <code>Security</code> row exists for the ticker</td>
+            <td><code>Security { Id=42, TickerID=7, SecurityName="APPLE INC", CurrencyID=1 }</code></td>
+          </tr>
+          <tr>
+            <td><code>Portfolio.SecurityID = null</code> (if imported before Securities)</td>
+            <td>Still <code>null</code> — Portfolio import in Step&nbsp;5 performs its own <code>Security</code> lookup</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h4 class="sub">Do you need to clean out the Securities table first?</h4>
+    <p>
+      <strong>No.</strong> The method builds <code>existingTickerIDs</code> — a
+      <code>HashSet&lt;int?&gt;</code> of every <code>TickerID</code> that already has a Security row —
+      and the LINQ <code>.Where(t =&gt; !existingTickerIDs.Contains(t.ID))</code> filters out any
+      Ticker that is already covered. Running the button on a database that already has Securities is
+      perfectly safe: it will insert rows only for Tickers that are genuinely new.
+    </p>
+    <p>
+      If you add more Tickers later and click the button again, <code>secs</code> will contain only the
+      brand-new Security projections; the existing rows are completely untouched.
+    </p>
+
+    <h4 class="sub">The critical limitation on transaction back-linking</h4>
+    <p>
+      Phase&nbsp;2 is tied exclusively to the Securities that were <strong>created in this specific
+      run</strong>. The transaction query is:
+    </p>
+    <pre>var secNames = secs.Select(s =&gt; s.SecurityName).ToList();   // ← only THIS run's new secs
+var transByName = await scope.GetEntitiesAsync&lt;Transaction&gt;(
+    t =&gt; secNames.Contains(t.Security));                      // ← only those names are queried</pre>
+    <p>
+      Consequence: if a Security already existed in the table (it was in <code>existingTickerIDs</code>
+      and was therefore skipped in Phase&nbsp;1), <strong>its transactions are never queried or
+      updated</strong> — even if every one of those transactions still has
+      <code>SecurityID = null</code>. This happens in two common real-world scenarios:
+    </p>
+    <ul class="bullets">
+      <li>
+        <strong>New transactions imported after Securities already exist.</strong> If you import a fresh
+        broker file weeks later, the new Transaction rows will have <code>SecurityID = null</code>.
+        Running <em>ImportSecurities</em> again will produce an empty <code>secs</code> list (all
+        Tickers already have Securities), so Phase&nbsp;2 runs over zero names and nothing is updated.
+        Those transactions remain unlinked.
+      </li>
+      <li>
+        <strong>Name mismatch corrected after the fact.</strong> If you fix a <code>Ticker.Name</code>
+        to align with the broker text and re-run, the Security for that Ticker already exists and will
+        be skipped — the transaction-link step never fires for it.
+      </li>
+    </ul>
+
+    <div class="callout danger">
+      <strong>Transactions imported after Securities are already set up will NOT be auto-linked.</strong>
+      Phase&nbsp;2 only back-fills <code>SecurityID</code> for the batch created in the current run.
+      To fix orphaned transactions (those with <code>SecurityID = null</code> where a matching Security
+      exists), the linking logic would need to be extracted into a separate repair step that queries
+      against <em>all</em> Securities rather than just the freshly created ones. Currently no such
+      button exists — orphaned transactions must be corrected directly in the database.
+    </div>
+
+    <div class="callout warn">
+      <strong>Name matching is case-sensitive and exact.</strong> The transaction query filters on
+      <code>secNames.Contains(t.Security)</code> — a straight string equality at the database level.
+      Any difference in capitalisation, spacing, or abbreviation between <code>Ticker.Name</code> and
+      the <code>Transaction.Security</code> string written by the broker import will prevent the link
+      from being made. Aligning names and re-running will only help for Securities created in that same
+      re-run; see the danger callout above for already-existing Securities.
+    </div>
+
+    <div class="callout info">
+      <strong>No CSV / Downloads folder needed.</strong> Unlike the other four import buttons,
+      <code>ImportSecurities</code> does not check <code>AppConfig.DownloadsPath</code> and will not
+      show a "file not found" warning. It runs entirely against the database. You can invoke it from
+      any machine as long as the database connection is available.
+    </div>
+
+    <h4 class="sub">UI feedback</h4>
+    <p>
+      The button (<code>b4</code>) turns red immediately when clicked and stays red for the rest of the
+      session. After both <code>SaveChangesAsync</code> calls complete, <code>ShowMessage(cc)</code>
+      displays a green banner with the <strong>number of Security rows created</strong> (not the number
+      of Transactions updated). The banner auto-dismisses after five seconds.
+    </p>
+
+    <h4 class="sub">What ImportSecurities does NOT do</h4>
+    <ul class="bullets">
+      <li>Does <strong>not</strong> set <code>Security.Price</code>, <code>Security.Exchange</code>,
+          <code>Security.DividendYield</code>, <code>Security.XIRR</code>, or any other market-data
+          field — those are populated by <strong>Update All</strong> (Yahoo snapshot).</li>
+      <li>Does <strong>not</strong> create History rows — run <strong>Update → Securities History</strong>
+          after this step to backfill price history.</li>
+      <li>Does <strong>not</strong> link <code>Portfolio.SecurityID</code> — that is done by
+          <strong>ImportPortfolio</strong> (Step&nbsp;5).</li>
+      <li>Does <strong>not</strong> scan all existing <code>Transaction</code> rows for
+          <code>SecurityID = null</code> and repair them — it only links transactions for Securities
+          <em>created in the current run</em>. Transactions imported after Securities already exist
+          remain unlinked.</li>
+      <li>Does <strong>not</strong> update any field on a Security that already exists — existing rows
+          are completely ignored, not merged or refreshed.</li>
+    </ul>
 
     <!-- ── PORTFOLIO ── -->
     <h3>5 · Portfolio — <code>ImportPortfolio()</code></h3>

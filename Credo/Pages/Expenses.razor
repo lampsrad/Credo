@@ -4,14 +4,25 @@
 <div style="display:flex; flex-direction:column; height:calc(100vh - 60px); padding:0 4px;">
     <div class="d-flex justify-content-center align-items-center gap-3 mb-1">
         <h4 class="mb-0">Expenses</h4>
-        <select style="background:#1a1d1f; color:antiquewhite; border:1px solid #355825; padding:1px 4px; font-size:13px;"
-                value="@selectedCode" @onchange="OnCodeFilter">
-            <option value="">All</option>
-            @foreach (var c in AvailableCodes)
+        <div style="position:relative; display:inline-block;">
+            <button @onclick="ToggleDropdown"
+                    style="background:#1a1d1f; color:antiquewhite; border:1px solid #355825; padding:1px 8px; font-size:13px; cursor:pointer;">
+                @FilterLabel ▾
+            </button>
+            @if (dropdownOpen)
             {
-                <option value="@c">@c</option>
+                <div style="position:absolute; top:100%; left:0; background:#1a1d1f; border:1px solid #355825; padding:4px 8px; z-index:100; min-width:100px;">
+                    @foreach (var c in AvailableCodes)
+                    {
+                        <label style="display:block; cursor:pointer; white-space:nowrap; padding:2px 0;">
+                            <input type="checkbox" checked="@selectedCodes.Contains(c)"
+                                   @onchange="@(() => ToggleCode(c))" />
+                            @c
+                        </label>
+                    }
+                </div>
             }
-        </select>
+        </div>
     </div>
 
     @if (Items == null)
@@ -35,6 +46,7 @@
                         <th>Cur</th>
                         <th>Loc Amount</th>
                         <th>USD</th>
+            @*             <th>SID</th> *@
                     </tr>
                 </thead>
                 <tbody>
@@ -47,16 +59,17 @@
                             <td>@t.Currency</td>
                             <td class="text-end">@(t.LocalAmount?.ToString("C", CultureFor(t.Currency)))</td>
                             <td class="text-end">@(t.LocalAmount.HasValue ? ToUsd(t.Currency, t.LocalAmount.Value).ToString("C", new CultureInfo("en-US")) : "")</td>
+                          @*       <td>@t.SecurityID</td> *@
                         </tr>
                     }
                     @foreach (var yr in Items.GroupBy(t => t.TradeDate.Year).OrderBy(g => g.Key))
                     {
                         <tr style="background:#2a3530; color:#fff5d6; font-weight:bold;">
+                            <td class="text-end">@yr.Key</td>
+                            <td></td>
+                            <td>Total Expenses</td>
                             <td></td>
                             <td></td>
-                            <td>@yr.Key Total</td>
-                            <td></td>
-                            <td class="text-end">@YearLocTotal(yr).ToString("C", new CultureInfo("en-GB"))</td>
                             <td class="text-end">@(yr.Sum(t => t.LocalAmount.HasValue ? ToUsd(t.Currency, t.LocalAmount.Value) : 0).ToString("C", new CultureInfo("en-US")))</td>
                         </tr>
                     }
@@ -65,7 +78,7 @@
                         <td></td>
                         <td>TOTAL</td>
                         <td></td>
-                        <td class="text-end">@Total.ToString("C", new CultureInfo("en-GB"))</td>
+                        <td></td>
                         <td class="text-end">@(Items.Sum(t => t.LocalAmount.HasValue ? ToUsd(t.Currency, t.LocalAmount.Value) : 0).ToString("C", new CultureInfo("en-US")))</td>
                     </tr>
                 </tbody>

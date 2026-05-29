@@ -13,6 +13,8 @@
     <button class="btn btn-sm @(b3 ? "btn-danger" : "btn-primary")" @onclick="ImportTransactions">Transactions</button>
     <button class="btn btn-sm @(b4 ? "btn-danger" : "btn-primary")" @onclick="ImportSecurities">Securities</button>
     <button class="btn btn-sm @(b5 ? "btn-danger" : "btn-primary")" @onclick="ImportPortfolio">Portfolio</button>
+    <hr style="border-color:#355825; margin:4px 0;" />
+    <button class="btn btn-sm @(b6 ? "btn-danger" : "btn-warning")" @onclick="LinkTransactions" title="Sets SecurityID on transactions where it is null but a matching Security name exists">Link Trans</button>
 </div>
 
 

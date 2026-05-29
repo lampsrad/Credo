@@ -15,6 +15,7 @@ public partial class TransactionsView
     private IList<Transaction> YearlyFees { get; set; } = new List<Transaction>();
     private string sortColumn = "Security";
     private bool sortAscending = true;
+    private string Title = "";
 
     private async Task ContextMenuHide()
     {
@@ -30,6 +31,7 @@ public partial class TransactionsView
             Transactions = await repo.GetEntitiesNTAsync<Transaction>(null);
         else
         {
+            Title = "FEES";
             Transactions = await repo.GetEntitiesNTAsync<Transaction>(x => x.TranCode==Data);
            var Gy = Transactions.GroupBy(x => x.TradeDate.Year);
             foreach(var y in Gy)
