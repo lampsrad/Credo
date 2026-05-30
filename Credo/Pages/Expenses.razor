@@ -50,20 +50,19 @@
                     </tr>
                 </thead>
                 <tbody>
-                    @foreach (var t in Items)
-                    {
-                        <tr>
-                            <td class="text-end">@t.TradeDate</td>
-                            <td class="text-center">@t.TranCode</td>
-                            <td>@t.Security</td>
-                            <td>@t.Currency</td>
-                            <td class="text-end">@(t.LocalAmount?.ToString("C", CultureFor(t.Currency)))</td>
-                            <td class="text-end">@(t.LocalAmount.HasValue ? ToUsd(t.Currency, t.LocalAmount.Value).ToString("C", new CultureInfo("en-US")) : "")</td>
-                          @*       <td>@t.SecurityID</td> *@
-                        </tr>
-                    }
                     @foreach (var yr in Items.GroupBy(t => t.TradeDate.Year).OrderBy(g => g.Key))
                     {
+                        @foreach (var t in yr)
+                        {
+                            <tr>
+                                <td class="text-end">@t.TradeDate</td>
+                                <td class="text-center">@t.TranCode</td>
+                                <td>@t.Security</td>
+                                <td>@t.Currency</td>
+                                <td class="text-end">@(t.LocalAmount?.ToString("C", CultureFor(t.Currency)))</td>
+                                <td class="text-end">@(t.LocalAmount.HasValue ? ToUsd(t.Currency, t.LocalAmount.Value).ToString("C", new CultureInfo("en-US")) : "")</td>
+                            </tr>
+                        }
                         <tr style="background:#2a3530; color:#fff5d6; font-weight:bold;">
                             <td class="text-end">@yr.Key</td>
                             <td></td>
