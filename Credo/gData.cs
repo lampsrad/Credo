@@ -8,6 +8,7 @@ public static class gData
     public static string connectionKey { get; set; } = "Local";
     public static string DownloadsPath { get; set; } = "C:\\Users\\lamps\\Downloads\\Credo\\";
     public static string dbName { get; set; } = "Credo";
+    public static string ServerName { get; set; } = "SQL16";
     public static bool FirstTime { get; set; } = true;
 
     public static Dictionary<string, string> Currencies { get; set; } = new Dictionary<string, string>
