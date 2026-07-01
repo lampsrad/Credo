@@ -41,7 +41,7 @@ public class DbContextFactory : IDbContextFactory
         var raw = configuration.GetConnectionString(key);
         if (string.IsNullOrWhiteSpace(raw)) return null;
         return raw
-            .Replace("[ServerName]", $"{appConfig.MachineName}\\SQL")
+            .Replace("[ServerName]", $"{appConfig.MachineName}\\{appConfig.SqlInstance}")
             .Replace("[DatabaseName]", appConfig.DbName);
     }
 }

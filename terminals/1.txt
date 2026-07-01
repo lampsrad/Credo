@@ -1,0 +1,39 @@
+---
+pid: 7432
+cwd: "D:\VS\VS Active\credo"
+command: "dotnet build \"D:\\VS\\VS Active\\credo\\CredoApp.slnx\" -v q 2>&1; dotnet run --project \"D:\\VS\\VS Active\\credo\\Credo\\Credo.csproj\" --no-build 2>&1"
+started_at: 2026-07-01T10:02:39.333Z
+running_for_ms: 750004   
+---
+D:\VS\VS Active\credo\Credo\Services\Internet.cs(10,39): warning CS8602: Dereference of a possibly null reference. [D:\VS\VS Active\credo\Credo\Credo.csproj]
+D:\VS\VS Active\credo\Credo\Services\Internet.cs(10,64): warning CS8603: Possible null reference return. [D:\VS\VS Active\credo\Credo\Credo.csproj]
+D:\VS\VS Active\credo\Credo\Services\Internet.cs(21,55): warning CS8603: Possible null reference return. [D:\VS\VS Active\credo\Credo\Credo.csproj]
+D:\VS\VS Active\credo\Credo\Services\Internet.cs(27,24): warning CS8603: Possible null reference return. [D:\VS\VS Active\credo\Credo\Credo.csproj]
+D:\VS\VS Active\credo\Credo\Services\Internet.cs(42,20): warning CS8603: Possible null reference return. [D:\VS\VS Active\credo\Credo\Credo.csproj]
+D:\VS\VS Active\credo\Credo\Services\Internet.cs(46,20): warning CS8603: Possible null reference return. [D:\VS\VS Active\credo\Credo\Credo.csproj]
+D:\VS\VS Active\credo\Credo\Pages\PortfolioView.razor.cs(12,24): warning CS8618: Non-nullable property 'config' must contain a non-null value when exiting constructor. Consider adding the 'required' modifier or declaring the property as nullable. [D:\VS\VS Active\credo\Credo\Credo.csproj]
+
+Build succeeded.
+
+D:\VS\VS Active\credo\Credo\Services\Internet.cs(10,39): warning CS8602: Dereference of a possibly null reference. [D:\VS\VS Active\credo\Credo\Credo.csproj]
+D:\VS\VS Active\credo\Credo\Services\Internet.cs(10,64): warning CS8603: Possible null reference return. [D:\VS\VS Active\credo\Credo\Credo.csproj]
+D:\VS\VS Active\credo\Credo\Services\Internet.cs(21,55): warning CS8603: Possible null reference return. [D:\VS\VS Active\credo\Credo\Credo.csproj]
+D:\VS\VS Active\credo\Credo\Services\Internet.cs(27,24): warning CS8603: Possible null reference return. [D:\VS\VS Active\credo\Credo\Credo.csproj]
+D:\VS\VS Active\credo\Credo\Services\Internet.cs(42,20): warning CS8603: Possible null reference return. [D:\VS\VS Active\credo\Credo\Credo.csproj]
+D:\VS\VS Active\credo\Credo\Services\Internet.cs(46,20): warning CS8603: Possible null reference return. [D:\VS\VS Active\credo\Credo\Credo.csproj]
+D:\VS\VS Active\credo\Credo\Pages\PortfolioView.razor.cs(12,24): warning CS8618: Non-nullable property 'config' must contain a non-null value when exiting constructor. Consider adding the 'required' modifier or declaring the property as nullable. [D:\VS\VS Active\credo\Credo\Credo.csproj]
+    7 Warning(s)
+    0 Error(s)
+
+Time Elapsed 00:00:05.38
+Using launch settings from D:\VS\VS Active\credo\Credo\Properties\launchSettings.json...
+warn: Microsoft.AspNetCore.Server.Kestrel[0]
+      Overriding address(es) 'http://localhost:5183'. Binding to endpoints defined via IConfiguration and/or UseKestrel() instead.
+info: Microsoft.Hosting.Lifetime[14]
+      Now listening on: http://localhost:5123
+info: Microsoft.Hosting.Lifetime[0]
+      Application started. Press Ctrl+C to shut down.
+info: Microsoft.Hosting.Lifetime[0]
+      Hosting environment: Development
+info: Microsoft.Hosting.Lifetime[0]
+      Content root path: D:\VS\VS Active\credo\Credo

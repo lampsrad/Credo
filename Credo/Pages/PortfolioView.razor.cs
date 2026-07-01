@@ -28,7 +28,14 @@ public partial class PortfolioView
     private decimal? portfolioCostBase;
     private DateTime? lastUpdated { get; set; }
     private HashSet<int> checkedRows = new();
-private void ToggleChecked(int id)
+    private int? editingRowId;
+    private bool isSavingQty;
+    private bool qtySaveFromEnter;
+    private bool pendingQtyFocus;
+    private int? savedRowId;
+    private Dictionary<int, int?> editQty = new();
+
+    private void ToggleChecked(int id)
     {
         if (!checkedRows.Add(id))
             checkedRows.Remove(id);
@@ -215,4 +222,99 @@ private void ToggleChecked(int id)
     private string SortGlyph(string column) =>
         sortColumn == column ? (sortAscending ? "▲" : "▼") : "↕";
     private void ToggleTotalVisibility() => IsVisibleTotal = !IsVisibleTotal;
+
+    private void StartEditQty(Portfolio p)
+    {
+        editingRowId = p.Id;
+        editQty[p.Id] = p.Quantity;
+        savedRowId = null;
+        pendingQtyFocus = true;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!pendingQtyFocus || editingRowId is not int id) return;
+        pendingQtyFocus = false;
+        await jsr.InvokeVoidAsync("FocusElement", $"qty-input-{id}");
+    }
+
+    private void CancelEditQty()
+    {
+        if (editingRowId is int id)
+            editQty.Remove(id);
+        editingRowId = null;
+    }
+
+    private int? GetEditQty(Portfolio p) =>
+        editQty.TryGetValue(p.Id, out var qty) ? qty : p.Quantity;
+
+    private void OnQtyInput(Portfolio p, ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var qty) && qty >= 0)
+            editQty[p.Id] = qty;
+    }
+
+    private async Task OnQtyKeyDown(Portfolio p, KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            qtySaveFromEnter = true;
+            try
+            {
+                await SaveQuantityAsync(p);
+            }
+            finally
+            {
+                qtySaveFromEnter = false;
+            }
+        }
+        else if (e.Key == "Escape")
+            CancelEditQty();
+    }
+
+    private async Task OnQtyBlurAsync(Portfolio p)
+    {
+        if (qtySaveFromEnter) return;
+        await SaveQuantityAsync(p);
+    }
+
+    private async Task SaveQuantityAsync(Portfolio p)
+    {
+        if (editingRowId != p.Id || isSavingQty) return;
+        var newQty = GetEditQty(p);
+        if (newQty == p.Quantity)
+        {
+            CancelEditQty();
+            return;
+        }
+        if (newQty < 0) return;
+
+        isSavingQty = true;
+        try
+        {
+            await using var scope = repo.BeginScope();
+            var entity = await scope.GetEntityAsync<Portfolio>(x => x.Id == p.Id);
+            if (entity is null) return;
+            entity.Quantity = newQty;
+            await scope.SaveChangesAsync();
+            await updates.UpdatePortfolioAsync();
+            Portfs = await repo.GetEntitiesNTAsync<Portfolio>();
+            editQty.Remove(p.Id);
+            editingRowId = null;
+            savedRowId = p.Id;
+            hasRefreshed = true;
+            SortData();
+            StateHasChanged();
+            await Task.Delay(1200);
+            if (savedRowId == p.Id)
+            {
+                savedRowId = null;
+                StateHasChanged();
+            }
+        }
+        finally
+        {
+            isSavingQty = false;
+        }
+    }
 }

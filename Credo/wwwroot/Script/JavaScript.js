@@ -14,13 +14,13 @@ window.HideContextMenu = function (id) {
         menu.style.display = "none";
     }
 };
-function FocusElement(id) {
-    let element = document.getElementById(id);
+window.FocusElement = function (id) {
+    const element = document.getElementById(id);
     if (element) {
         element.focus();
         element.select();
     }
-}
+};
 
 let _marketChart = null;
 let _chartParams = null;

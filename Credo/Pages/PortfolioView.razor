@@ -67,7 +67,7 @@
     else if (Items.Count == 0)
     {
         <div class="empty-state">
-            <p>No holdings yet. Import transactions or update securities to populate your portfolio.</p>
+            <p>No holdings yet. Import portfolio or update securities to populate your portfolio.</p>
         </div>
     }
     else
@@ -121,15 +121,40 @@
                 <tbody>
                     @foreach (var p in Items)
                     {
-                        <tr @key="p.Id" class="text-end @(selectedRow == p ? "row-selected" : "")"
+                        <tr @key="p.Id" class="text-end @(selectedRow == p ? "row-selected" : "") @(savedRowId == p.Id ? "row-saved" : "")"
                             @onclick="@(() => RowClickedAsync(p))">
-                            <td style="display:flex; align-items:center; justify-content:space-between; gap:0.25rem;">
-                                <button class="chart-btn" title="Show chart"
-                                        @onclick="@(() => ShowChartAsync(p))"
-                                        @onclick:stopPropagation>
-                                    📈
-                                </button>
-                                <span>@(p.Quantity?.ToString("N0", CultureInfo.InvariantCulture) ?? "—")</span>
+                            <td class="qty-cell">
+                                <span class="qty-actions">
+                                    <button class="chart-btn" title="Show chart"
+                                            @onclick="@(() => ShowChartAsync(p))"
+                                            @onclick:stopPropagation>
+                                        📈
+                                    </button>
+                                    @if (editingRowId != p.Id)
+                                    {
+                                        <button type="button" class="chart-btn qty-edit-btn"
+                                                title="Edit quantity"
+                                                aria-label="Edit quantity for @p.Security_Description"
+                                                @onclick="@(() => StartEditQty(p))"
+                                                @onclick:stopPropagation>✎</button>
+                                    }
+                                </span>
+                                @if (editingRowId == p.Id)
+                                {
+                                    <input type="number" class="qty-input" min="0" step="1"
+                                           id="@($"qty-input-{p.Id}")"
+                                           value="@GetEditQty(p)"
+                                           disabled="@isSavingQty"
+                                           title="Edit quantity — Enter to save, Esc to cancel"
+                                           @oninput="@(e => OnQtyInput(p, e))"
+                                           @onkeydown="@(e => OnQtyKeyDown(p, e))"
+                                           @onblur="@(() => OnQtyBlurAsync(p))"
+                                           @onclick:stopPropagation />
+                                }
+                                else
+                                {
+                                    <span class="qty-value">@(p.Quantity?.ToString("N0", CultureInfo.InvariantCulture) ?? "—")</span>
+                                }
                             </td>
                             <td class="text-center" style="vertical-align:middle;">
                                 <input type="checkbox" class="row-checkbox"

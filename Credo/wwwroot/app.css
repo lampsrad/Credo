@@ -314,6 +314,69 @@
 .portfolio-toolbar .btn-refresh:focus-visible { outline: 2px solid #258cfb; outline-offset: 1px; }
 .portfolio-toolbar .btn-refresh[disabled] { opacity: 0.55; cursor: not-allowed; }
 
+#members .qty-cell {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    white-space: nowrap;
+}
+
+#members .qty-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.1rem;
+    flex-shrink: 0;
+}
+
+#members .qty-edit-btn {
+    color: #9db892;
+    opacity: 0.8;
+}
+
+#members .qty-edit-btn:hover,
+#members .qty-edit-btn:focus-visible {
+    color: #c5dcc0;
+    opacity: 1;
+}
+
+#members .qty-value {
+    flex: 1;
+    min-width: 3ch;
+    text-align: right;
+}
+
+#members .qty-input {
+    width: 5.5rem;
+    max-width: 100%;
+    background: #1a1d1f;
+    color: antiquewhite;
+    border: 1px solid #355825;
+    border-radius: 3px;
+    padding: 0.1rem 0.25rem;
+    font-size: inherit;
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+}
+
+#members .qty-input:focus {
+    outline: none;
+    border-color: #258cfb;
+    box-shadow: 0 0 0 2px rgba(37, 140, 251, 0.25);
+}
+
+#members .qty-input:disabled {
+    opacity: 0.55;
+}
+
+#members tr.row-saved td:first-child {
+    animation: qty-saved-flash 1.2s ease-out;
+}
+
+@keyframes qty-saved-flash {
+    0% { background-color: rgba(74, 122, 53, 0.45); }
+    100% { background-color: transparent; }
+}
+
 .portfolio-toolbar .btn-refresh-mini {
     padding: 0.1rem 0.4rem;
     font-size: 0.75rem;

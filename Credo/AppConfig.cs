@@ -8,6 +8,7 @@ public class AppConfig
     public string? BrowserPath { get; }
     private Process? browserProcess;
     public string ConnectionKey { get; set; } = "XPS";
+    public string SqlInstance { get; set; } = "SQL";
     public string DbName { get; set; } = "Credo";
     public string? DownloadsPath { get; }
     private static string? ExpandPath(string? value) =>
@@ -18,6 +19,7 @@ public class AppConfig
     public AppConfig(IConfiguration configuration)
     {
         MachineName = Environment.MachineName;
+        SqlInstance = MachineName == "ROG" ? "SQL16" : "SQL";
         BackupPath = ExpandPath(configuration["Paths:Backup"]);
         DownloadsPath = ExpandPath(configuration["Paths:Downloads"]);
         BrowserPath =  MachineName=="ROG"? ExpandPath(configuration["Paths:BrowserROG"]) : ExpandPath(configuration["Paths:BrowserXPS"]);
