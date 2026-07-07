@@ -67,20 +67,18 @@ public sealed class PortfolioMap : ClassMap<Portfolio>
             .Convert(args =>
             {
                 string field = args.Row.GetField("Quantity") ?? "";
-                field = field.Trim();
+                field = field.Replace(" ", "").Replace(",", "").Trim();
                 if (string.IsNullOrWhiteSpace(field))
                     return 0;
-                if (decimal.TryParse(field, out decimal decimalValue))
-                {
+                if (decimal.TryParse(field, NumberStyles.Any, CultureInfo.InvariantCulture, out decimal decimalValue))
                     return (int)Math.Round(decimalValue);
-                }
                 return 0;
             });
-        Map(m => m.Security_Description).Name("Security Description");
-        Map(m => m.Unit_Cost).Name("Unit Cost").TypeConverter<DecimalNullConverter>();
+        Map(m => m.Security_Description).Name("Security Description", "SecurityDescription");
+        Map(m => m.Unit_Cost).Name("Unit Cost", "UnitCost").TypeConverter<DecimalNullConverter>();
         Map(m => m.Price).Name("Price").TypeConverter<DecimalNullConverter>();
         Map(m => m.Cost).Name("Cost").TypeConverter<DecimalNullConverter>();
-        Map(m => m.Market_Value).Name("Market Value").TypeConverter<DecimalNullConverter>();
+        Map(m => m.Market_Value).Name("Market Value", "MarketValue").TypeConverter<DecimalNullConverter>();
         Map(m => m.Pct)
              .Convert(args =>
              {
