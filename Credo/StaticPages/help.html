@@ -490,7 +490,7 @@
           <tr><td><code>/transactions/{Data}</code></td><td>TransactionsView.razor</td><td>Fee variant (Data = "dp")</td></tr>
           <tr><td><code>/tickers</code></td><td>TickerView.razor</td><td>Ticker symbol list (symbol, name, currency)</td></tr>
           <tr><td><code>/expenses</code></td><td>Expenses.razor</td><td>Expense tracking</td></tr>
-          <tr><td><code>/import</code></td><td>ImportView.razor</td><td>CSV import for Tickers / Currencies / Transactions / Securities / Portfolio</td></tr>
+          <tr><td><code>/import</code></td><td>ImportView.razor</td><td>Broker file import (CSV / xlsx) for Tickers, Currencies, Transactions, Securities, Portfolio; Link Trans repair</td></tr>
           <tr><td><code>/backup/{action}</code></td><td>Backup.razor</td><td>Backup &amp; Restore (action = "Backup" | "Restore")</td></tr>
           <tr><td><code>/help.html</code></td><td>wwwroot/help.html</td><td>This developer reference (served by a custom <code>MapGet</code> in Program.cs)</td></tr>
         </tbody>
@@ -515,7 +515,7 @@
       </div>
       <div class="card">
         <h4>&#128228; Import</h4>
-        <p>Import CSV data: Tickers, Currencies, Transactions, Securities, Portfolio.</p>
+        <p>Import broker data: Tickers, Currencies, Transactions, Securities, Portfolio — plus Link Trans repair.</p>
         <div class="route">/import</div>
       </div>
       <div class="card">
@@ -1274,12 +1274,14 @@ builder.Services.AddScoped&lt;GraphService&gt;();</pre>
     <h2><span class="icon">&#128228;</span> Import / Export</h2>
 
     <p>
-      All imports are triggered from <code>/import</code> (<code>ImportView.razor</code>). Each button turns
-      red after it is clicked so you can see at a glance what has already run in the current session.
-      After every import a success banner shows the number of rows written to the database and disappears
-      automatically after five seconds. All CSV parsing uses the
+      All imports are triggered from <code>/import</code> (<code>ImportView.razor</code>). Five buttons import
+      broker files; a sixth — <strong>Link Trans</strong> — repairs transaction foreign keys without reading any
+      file. Each button turns red after it is clicked so you can see at a glance what has already run in the
+      current session. After every import or repair step a success banner shows the number of rows written to
+      the database and disappears automatically after five seconds. CSV parsing uses the
       <a href="https://joshclose.github.io/CsvHelper/" target="_blank">CsvHelper</a> library with class maps
-      defined in <code>Classes/Classes.cs</code>.
+      defined in <code>Classes/Classes.cs</code>. Transactions and Portfolio also accept native broker
+      <code>.xlsx</code> when no matching CSV is present.
     </p>
 
     <h3>Recommended import order</h3>
@@ -1293,6 +1295,8 @@ builder.Services.AddScoped&lt;GraphService&gt;();</pre>
       <li><strong>Transactions</strong> — raw ledger rows; stored by security <em>name</em> (string) at this stage.</li>
       <li><strong>Securities</strong> — creates Security rows from Tickers and back-links Transactions by name.</li>
       <li><strong>Portfolio</strong> — current holdings snapshot; links to Securities and Currencies.</li>
+      <li><strong>Link Trans</strong> (optional, any time) — back-fills <code>Transaction.SecurityID</code> for
+          orphaned rows, or corrects links where duplicate Security names exist.</li>
     </ol>
 
     <!-- ── TICKERS ── -->
@@ -1644,12 +1648,11 @@ var transByName = await scope.GetEntitiesAsync&lt;Transaction&gt;(
     </ul>
 
     <div class="callout danger">
-      <strong>Transactions imported after Securities are already set up will NOT be auto-linked.</strong>
-      Phase&nbsp;2 only back-fills <code>SecurityID</code> for the batch created in the current run.
-      To fix orphaned transactions (those with <code>SecurityID = null</code> where a matching Security
-      exists), the linking logic would need to be extracted into a separate repair step that queries
-      against <em>all</em> Securities rather than just the freshly created ones. Currently no such
-      button exists — orphaned transactions must be corrected directly in the database.
+      <strong>Transactions imported after Securities are already set up will NOT be auto-linked by
+      ImportSecurities alone.</strong> Phase&nbsp;2 only back-fills <code>SecurityID</code> for the batch
+      created in the current run. To repair orphans at any time, use the separate
+      <strong>Link Trans</strong> button (see <a href="#link-trans">Section&nbsp;6</a>), which scans
+      <em>all</em> Securities and all unlinked or mis-linked Transactions.
     </div>
 
     <div class="callout warn">
@@ -1687,8 +1690,7 @@ var transByName = await scope.GetEntitiesAsync&lt;Transaction&gt;(
           <strong>ImportPortfolio</strong> (Step&nbsp;5).</li>
       <li>Does <strong>not</strong> scan all existing <code>Transaction</code> rows for
           <code>SecurityID = null</code> and repair them — it only links transactions for Securities
-          <em>created in the current run</em>. Transactions imported after Securities already exist
-          remain unlinked.</li>
+          <em>created in the current run</em>. Use <strong>Link Trans</strong> to repair older orphans.</li>
       <li>Does <strong>not</strong> update any field on a Security that already exists — existing rows
           are completely ignored, not merged or refreshed.</li>
     </ul>
@@ -1696,19 +1698,23 @@ var transByName = await scope.GetEntitiesAsync&lt;Transaction&gt;(
     <!-- ── PORTFOLIO ── -->
     <h3>5 · Portfolio — <code>ImportPortfolio()</code></h3>
     <p>
-      <strong>File:</strong> first file matching <code>Portfolio*.csv</code> in <code>DownloadsPath</code>.<br>
-      <strong>Class map:</strong> <code>PortfolioMap</code>
+      <strong>File:</strong> first file matching <code>Portfolio*.csv</code> in <code>DownloadsPath</code> is
+      <strong>preferred</strong>; if none is found, it falls back to <code>Portfolio*.xlsx</code>.<br>
+      <strong>Typical workflow:</strong> the broker supplies <code>.xlsx</code>; save/export as CSV into
+      <code>Downloads\Credo\</code> before clicking <strong>Portfolio</strong>.<br>
+      <strong>Class map (CSV):</strong> <code>PortfolioMap</code> &nbsp;·&nbsp;
+      <strong>XLSX reader:</strong> <code>ReadPortfolioXlsxRows()</code>
     </p>
     <div class="tbl-wrap">
       <table>
-        <thead><tr><th>CSV column</th><th>Maps to</th><th>Notes</th></tr></thead>
+        <thead><tr><th>Column <small>(broker / spaced header)</small></th><th>Maps to</th><th>Notes</th></tr></thead>
         <tbody>
-          <tr><td><code>Quantity</code></td><td><code>Portfolio.Quantity</code></td><td>Decimal in CSV, rounded to <code>int</code>.</td></tr>
-          <tr><td><code>Security Description</code></td><td><code>Portfolio.Security_Description</code></td><td>Used as the match key for upsert and Security lookup.</td></tr>
-          <tr><td><code>Unit Cost</code></td><td><code>Portfolio.Unit_Cost</code></td><td>Cost per share at time of purchase.</td></tr>
+          <tr><td><code>Quantity</code></td><td><code>Portfolio.Quantity</code></td><td>Decimal in file, spaces stripped, rounded to <code>int</code>.</td></tr>
+          <tr><td><code>SecurityDescription</code> / <code>Security Description</code></td><td><code>Portfolio.Security_Description</code></td><td>Match key for upsert, delete, and Security lookup.</td></tr>
+          <tr><td><code>UnitCost</code> / <code>Unit Cost</code></td><td><code>Portfolio.Unit_Cost</code></td><td>Cost per share at time of purchase.</td></tr>
           <tr><td><code>Price</code></td><td><code>Portfolio.Price</code></td><td>Current market price per share.</td></tr>
           <tr><td><code>Cost</code></td><td><code>Portfolio.Cost</code></td><td>Total cost basis (Quantity × Unit Cost).</td></tr>
-          <tr><td><code>Market Value</code></td><td><code>Portfolio.Market_Value</code></td><td>Current market value (Quantity × Price).</td></tr>
+          <tr><td><code>MarketValue</code> / <code>Market Value</code></td><td><code>Portfolio.Market_Value</code></td><td>Current market value (Quantity × Price).</td></tr>
           <tr><td><code>Pct</code></td><td><code>Portfolio.Pct</code></td><td>% sign stripped before decimal parse.</td></tr>
           <tr><td><code>P&amp;L %</code></td><td><code>Portfolio.GainPerc</code></td><td>% sign stripped before decimal parse.</td></tr>
         </tbody>
@@ -1716,16 +1722,16 @@ var transByName = await scope.GetEntitiesAsync&lt;Transaction&gt;(
     </div>
     <p><strong>Row filtering:</strong> rows are silently skipped when:</p>
     <ul>
-      <li><code>Market_Value == 0</code> — zero-value lines (cash sweeps, expired options, etc.).</li>
+      <li><code>Market_Value == 0</code> (or null) — zero-value lines (cash sweeps, expired options, etc.).</li>
       <li><code>Security_Description == "CONSTELLATION SOFTWARE-WT 40"</code> — a hardcoded exclusion for
           a known warrant entry that has no tradeable equivalent.</li>
     </ul>
-    <p><strong>Upsert logic:</strong></p>
+    <p><strong>Upsert / delete logic</strong> (<code>UpsertPortfolioAsync()</code>):</p>
     <ul>
-      <li><strong>Existing row</strong> (matched by <code>Security_Description</code>): if
-          <code>Unit_Cost == Price</code> (meaning the position was just opened and cost equals market
-          price), the <code>Quantity</code> is updated. Otherwise the row is left unchanged — the live
-          price &amp; market value from Yahoo updates take precedence.</li>
+      <li><strong>Existing row</strong> (matched by <code>Security_Description</code>): <code>Quantity</code>
+          and <code>Market_Value</code> are updated from the file. Other columns are left unchanged — live
+          <code>Price</code>, <code>Gain</code>, and <code>IRR</code> come from <strong>Update All</strong> /
+          <strong>Recalculate Portfolio</strong>.</li>
       <li><strong>New row</strong>: a <code>Security</code> is looked up by
           <code>SecurityName == Security_Description</code>. If found, the new Portfolio row inherits
           <code>SecurityID</code>, <code>CurrencyID</code>, and <code>Price</code> from the Security.
@@ -1733,13 +1739,52 @@ var transByName = await scope.GetEntitiesAsync&lt;Transaction&gt;(
           derives a currency from the first word of the description:
           <code>Australian → USD</code>, <code>Euro → EUR</code>, <code>Pound → GBP</code>,
           <code>US → USD</code>, anything else → <code>USD</code>. Price is set to <code>1</code>.</li>
+      <li><strong>Removed holding</strong>: any <code>Portfolio</code> row whose
+          <code>Security_Description</code> does not appear in the import file (after row filtering) is
+          <strong>deleted</strong>. A sold position that no longer appears in the broker export will therefore
+          disappear from the Portfolio view on the next successful import.</li>
     </ul>
+    <div class="callout warn">
+      <strong>Portfolio view shows every row in the table.</strong> There is no filter for
+      <code>Quantity = 0</code>. If a holding is not removed by import, a zero-quantity row can remain visible
+      until the next successful <strong>Portfolio</strong> import deletes it.
+    </div>
+
+    <!-- ── LINK TRANS ── -->
+    <h3 id="link-trans">6 · Link Transactions — <code>LinkTransactions()</code></h3>
+    <p>
+      <strong>No file required.</strong> The yellow <strong>Link Trans</strong> button (<code>b6</code>) repairs
+      <code>Transaction.SecurityID</code> by matching the free-text <code>Transaction.Security</code> column against
+      <code>Security.SecurityName</code>. Use it when:
+    </p>
+    <ul class="bullets">
+      <li>New transactions were imported <em>after</em> Securities already existed (ImportSecurities Phase&nbsp;2
+          would have skipped them).</li>
+      <li>A Security name was corrected and transactions need re-linking.</li>
+      <li>Duplicate <code>SecurityName</code> rows exist and transactions were linked to the wrong one.</li>
+    </ul>
+    <p><strong>Duplicate-name resolution:</strong> when more than one <code>Security</code> shares the same
+      <code>SecurityName</code>, <code>ResolveSecurityId()</code> picks the row whose
+      <code>Exchange == "Milan"</code> (e.g. <em>FERRARI NV</em> Milan/EUR vs NYSE). Names with duplicates
+      but no Milan row are skipped and listed in the yellow warnings panel.</p>
+    <p><strong>Rows updated:</strong></p>
+    <ul class="bullets">
+      <li><code>SecurityID IS NULL</code> and <code>Security</code> matches a resolvable name.</li>
+      <li><code>SecurityID</code> points to a <em>non-preferred</em> duplicate (e.g. NYSE Ferrari) while a
+          preferred match exists — the link is corrected.</li>
+    </ul>
+    <p>
+      <code>ShowMessage(cc)</code> reports the EF <code>SaveChangesAsync</code> row count. Ambiguous names
+      appear in <code>results.Warnings</code> and persist in the warnings panel until the next action clears
+      <code>results</code>.
+    </p>
 
     <!-- ── SHARED INFRASTRUCTURE ── -->
     <h3>Shared infrastructure</h3>
 
     <h4>CsvConfiguration (<code>CsvConfig()</code>)</h4>
-    <p>All five import paths reuse the same <code>CsvConfiguration</code>:</p>
+    <p>Tickers, Currencies, Transactions (CSV fallback), and Portfolio (CSV path) reuse the same
+      <code>CsvConfiguration</code>:</p>
     <ul>
       <li>Header record expected (<code>HasHeaderRecord = true</code>).</li>
       <li>Comma delimiter, <code>InvariantCulture</code>.</li>

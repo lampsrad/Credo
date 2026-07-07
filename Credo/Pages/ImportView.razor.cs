@@ -105,74 +105,23 @@ public partial class ImportView
                 await ShowMessage(0);
                 return;
             }
-            var exfile = Directory.GetFiles(cfg.DownloadsPath, "Portfolio*.xlsx").FirstOrDefault();
-            if (exfile is null)
+
+            IEnumerable<Portfolio> rows;
+            var csvFile = Directory.GetFiles(cfg.DownloadsPath, "Portfolio*.csv").FirstOrDefault();
+            if (csvFile is not null)
+                rows = ReadPortfolioCsvRows(csvFile);
+            else
             {
-                await ShowMessage(0);
-                return;
+                var xlsxFile = Directory.GetFiles(cfg.DownloadsPath, "Portfolio*.xlsx").FirstOrDefault();
+                if (xlsxFile is null)
+                {
+                    await ShowMessage(0);
+                    return;
+                }
+                rows = MapXlsxRowsToPortfolio(ReadPortfolioXlsxRows(xlsxFile));
             }
 
-            var xlsxRows = ReadPortfolioXlsxRows(exfile);
-
-            await using var scope = repo.BeginScope();
-            var currencyByName = (await scope.GetEntitiesAsync<Currency>())
-                .Where(c => c.Name is not null)
-                .ToDictionary(c => c.Name!, c => c.ID);
-            var existingPortfs = (await scope.GetEntitiesAsync<Portfolio>())
-                .Where(p => p.Security_Description is not null)
-                .ToDictionary(p => p.Security_Description!, p => p);
-            var portfs = new List<Portfolio>();
-            var seenDescriptions = new HashSet<string>();
-
-            foreach (var row in xlsxRows)
-            {
-                var desc = row.SecurityDescription?.Trim();
-                var marketVal = ParsePortDecimal(row.MarketValue);
-
-                if (string.IsNullOrWhiteSpace(desc) || marketVal == 0 || desc == "CONSTELLATION SOFTWARE-WT 40")
-                    continue;
-
-                seenDescriptions.Add(desc);
-
-                if (existingPortfs.TryGetValue(desc, out var existing))
-                {
-                    existing.Quantity = ParsePortInt(row.Quantity);
-                    existing.Market_Value = marketVal;
-                    continue;
-                }
-
-                var port = new Portfolio
-                {
-                    Security_Description = desc,
-                    Quantity             = ParsePortInt(row.Quantity),
-                    Unit_Cost            = ParsePortDecimal(row.UnitCost),
-                    Price                = ParsePortDecimal(row.Price),
-                    Cost                 = ParsePortDecimal(row.Cost),
-                    Market_Value         = marketVal,
-                    Pct                  = ParsePortPct(row.Pct),
-                    GainPerc             = ParsePortPct(row.GainPerc),
-                };
-
-                var sec = await repo.GetEntityNTAsync<Security>(s => s.SecurityName == desc);
-                port.SecurityID  = sec?.Id;
-                port.CurrencyID  = sec?.CurrencyID;
-                port.Price       = sec?.Price;
-                if (sec == null)
-                {
-                    var curName = MapCurrencyName(desc);
-                    port.CurrencyID = currencyByName.TryGetValue(curName, out var id) ? id : (int?)null;
-                    port.Price = 1;
-                }
-                portfs.Add(port);
-            }
-
-            var toDelete = existingPortfs
-                .Where(kvp => !seenDescriptions.Contains(kvp.Key))
-                .Select(kvp => kvp.Value)
-                .ToList();
-            scope.RemoveRange(toDelete);
-            scope.AddRange(portfs);
-            var cc = await scope.SaveChangesAsync();
+            var cc = await UpsertPortfolioAsync(rows);
             await ShowMessage(cc);
         }
         catch (Exception ex)
@@ -181,6 +130,90 @@ public partial class ImportView
             results.Errors.Add(ex.Message);
             StateHasChanged();
         }
+    }
+
+    private List<Portfolio> ReadPortfolioCsvRows(string path)
+    {
+        using var reader = new StreamReader(path);
+        using var csv = new CsvReader(reader, CsvConfig());
+        csv.Context.RegisterClassMap<PortfolioMap>();
+        return csv.GetRecords<Portfolio>().ToList();
+    }
+
+    private static IEnumerable<Portfolio> MapXlsxRowsToPortfolio(IEnumerable<PortRow> xlsxRows) =>
+        xlsxRows.Select(row => new Portfolio
+        {
+            Security_Description = row.SecurityDescription?.Trim(),
+            Quantity             = ParsePortInt(row.Quantity),
+            Unit_Cost            = ParsePortDecimal(row.UnitCost),
+            Price                = ParsePortDecimal(row.Price),
+            Cost                 = ParsePortDecimal(row.Cost),
+            Market_Value         = ParsePortDecimal(row.MarketValue),
+            Pct                  = ParsePortPct(row.Pct),
+            GainPerc             = ParsePortPct(row.GainPerc),
+        });
+
+    private async Task<int> UpsertPortfolioAsync(IEnumerable<Portfolio> rows)
+    {
+        await using var scope = repo.BeginScope();
+        var currencyByName = (await scope.GetEntitiesAsync<Currency>())
+            .Where(c => c.Name is not null)
+            .ToDictionary(c => c.Name!, c => c.ID);
+        var existingPortfs = (await scope.GetEntitiesAsync<Portfolio>())
+            .Where(p => p.Security_Description is not null)
+            .ToDictionary(p => p.Security_Description!, p => p);
+        var portfs = new List<Portfolio>();
+        var seenDescriptions = new HashSet<string>();
+
+        foreach (var row in rows)
+        {
+            var desc = row.Security_Description?.Trim();
+            var marketVal = row.Market_Value;
+
+            if (string.IsNullOrWhiteSpace(desc) || (marketVal ?? 0) == 0 || desc == "CONSTELLATION SOFTWARE-WT 40")
+                continue;
+
+            seenDescriptions.Add(desc);
+
+            if (existingPortfs.TryGetValue(desc, out var existing))
+            {
+                existing.Quantity = row.Quantity;
+                existing.Market_Value = marketVal;
+                continue;
+            }
+
+            var port = new Portfolio
+            {
+                Security_Description = desc,
+                Quantity             = row.Quantity,
+                Unit_Cost            = row.Unit_Cost,
+                Price                = row.Price,
+                Cost                 = row.Cost,
+                Market_Value         = marketVal,
+                Pct                  = row.Pct,
+                GainPerc             = row.GainPerc,
+            };
+
+            var sec = await repo.GetEntityNTAsync<Security>(s => s.SecurityName == desc);
+            port.SecurityID  = sec?.Id;
+            port.CurrencyID  = sec?.CurrencyID;
+            port.Price       = sec?.Price;
+            if (sec == null)
+            {
+                var curName = MapCurrencyName(desc);
+                port.CurrencyID = currencyByName.TryGetValue(curName, out var id) ? id : (int?)null;
+                port.Price = 1;
+            }
+            portfs.Add(port);
+        }
+
+        var toDelete = existingPortfs
+            .Where(kvp => !seenDescriptions.Contains(kvp.Key))
+            .Select(kvp => kvp.Value)
+            .ToList();
+        scope.RemoveRange(toDelete);
+        scope.AddRange(portfs);
+        return await scope.SaveChangesAsync();
     }
 
     // ── Portfolio xlsx helpers ────────────────────────────────────────────────
@@ -235,26 +268,33 @@ public partial class ImportView
 
             if (cells.Count == 0) continue;
 
-            // Detect header row by the presence of "Security Description"
+            // Detect header row by Security Description / SecurityDescription
             if (colMap is null)
             {
-                if (cells.Values.Any(v => string.Equals(v?.Trim(), "Security Description", StringComparison.OrdinalIgnoreCase)))
+                if (cells.Values.Any(v =>
+                        string.Equals(v?.Trim(), "Security Description", StringComparison.OrdinalIgnoreCase)
+                        || string.Equals(v?.Trim(), "SecurityDescription", StringComparison.OrdinalIgnoreCase)))
                     colMap = cells
                         .Where(kv => kv.Value is not null)
                         .ToDictionary(kv => kv.Value!.Trim(), kv => kv.Key, StringComparer.OrdinalIgnoreCase);
                 continue; // skip preamble rows and the header row itself
             }
 
-            string? Cell(string header) =>
-                colMap.TryGetValue(header, out var c) ? cells.GetValueOrDefault(c) : null;
+            string? Cell(params string[] headers)
+            {
+                foreach (var header in headers)
+                    if (colMap.TryGetValue(header, out var c))
+                        return cells.GetValueOrDefault(c);
+                return null;
+            }
 
             rows.Add(new PortRow(
                 Quantity:            Cell("Quantity"),
-                SecurityDescription: Cell("Security Description"),
-                UnitCost:            Cell("Unit Cost"),
+                SecurityDescription: Cell("Security Description", "SecurityDescription"),
+                UnitCost:            Cell("Unit Cost", "UnitCost"),
                 Price:               Cell("Price"),
                 Cost:                Cell("Cost"),
-                MarketValue:         Cell("Market Value"),
+                MarketValue:         Cell("Market Value", "MarketValue"),
                 Pct:                 Cell("Pct"),
                 GainPerc:            Cell("P&L %")));
         }
@@ -491,22 +531,45 @@ public partial class ImportView
         b6 = true;
         await using var scope = repo.BeginScope();
 
-        // Build name → ID map from every Security that has a name
-        var secByName = (await scope.GetEntitiesAsync<Security>())
+        // Build name → ID map; duplicate names resolve to Milan exchange when present
+        var byName = (await scope.GetEntitiesAsync<Security>())
             .Where(s => s.SecurityName is not null)
-            .ToDictionary(s => s.SecurityName!, s => s.Id);
+            .GroupBy(s => s.SecurityName!)
+            .ToList();
+        var secByName = new Dictionary<string, int>();
+        foreach (var g in byName)
+        {
+            var id = ResolveSecurityId(g);
+            if (id is null)
+                results.Warnings.Add($"Ambiguous Security name '{g.Key}' ({g.Count()} rows) — transactions not linked.");
+            else
+                secByName[g.Key] = id.Value;
+        }
 
-        // Load only transactions that are unlinked but have a name we can match
-        var orphans = (await scope.GetEntitiesAsync<Transaction>(
-                t => t.SecurityID == null && t.Security != null))
-            .Where(t => secByName.ContainsKey(t.Security!))
+        var duplicateIds = byName
+            .Where(g => g.Count() > 1)
+            .SelectMany(g => g.Select(s => s.Id))
+            .ToHashSet();
+
+        // Link orphans and correct transactions tied to the wrong duplicate (e.g. NYSE vs Milan)
+        var toLink = (await scope.GetEntitiesAsync<Transaction>(t => t.Security != null))
+            .Where(t => secByName.ContainsKey(t.Security!)
+                && (t.SecurityID == null
+                    || (duplicateIds.Contains(t.SecurityID.Value) && t.SecurityID != secByName[t.Security!])))
             .ToList();
 
-        foreach (var t in orphans)
+        foreach (var t in toLink)
             t.SecurityID = secByName[t.Security!];
 
         int cc = await scope.SaveChangesAsync();
         await ShowMessage(cc);
+    }
+    private static int? ResolveSecurityId(IEnumerable<Security> group)
+    {
+        var list = group.ToList();
+        if (list.Count == 0) return null;
+        if (list.Count == 1) return list[0].Id;
+        return list.FirstOrDefault(s => s.Exchange == "Milan")?.Id;
     }
     private async Task ShowMessage(int cc)
     {
