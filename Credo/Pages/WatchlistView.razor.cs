@@ -16,6 +16,8 @@ public partial class WatchlistView
 
     private IList<Watchlist>? Items { get; set; }
     private Dictionary<string, (decimal? Price, DateOnly Date)> LatestPrices { get; set; } = new();
+    /// <summary>Previous trading-day close (second-most-recent History row per symbol).</summary>
+    private Dictionary<string, (decimal? Price, DateOnly Date)> PrevDayPrices { get; set; } = new();
 
     private string newSymbol = string.Empty;
     private string newName = string.Empty;
@@ -33,6 +35,7 @@ public partial class WatchlistView
     {
         Items = await repo.GetEntitiesNTAsync<Watchlist>(null);
         LatestPrices = new();
+        PrevDayPrices = new();
         if (Items.Count == 0) return;
 
         var symbols = Items
@@ -43,12 +46,30 @@ public partial class WatchlistView
         var allHistory = await repo.GetEntitiesNTAsync<History>(
             h => h.Symbol != null && symbols.Contains(h.Symbol));
 
-        LatestPrices = allHistory
-            .GroupBy(h => h.Symbol!)
-            .ToDictionary(
-                g => g.Key,
-                g => { var row = g.OrderByDescending(h => h.Date).First(); return (row.Price, row.Date); });
+        foreach (var g in allHistory.GroupBy(h => h.Symbol!))
+        {
+            var ordered = g.OrderByDescending(h => h.Date).ToList();
+            var latest = ordered[0];
+            LatestPrices[g.Key] = (latest.Price, latest.Date);
+            if (ordered.Count > 1)
+            {
+                var prev = ordered[1];
+                PrevDayPrices[g.Key] = (prev.Price, prev.Date);
+            }
+        }
     }
+
+    private static string PctClass(decimal? v) =>
+        v is null ? "" : (v > 0 ? "text-success" : (v < 0 ? "text-danger" : ""));
+
+    private static string FormatSignedPct2(decimal? v) =>
+        v is null ? "—" : string.Format(System.Globalization.CultureInfo.InvariantCulture, "{0:+#,##0.00;-#,##0.00;0.00}%", v);
+
+    /// <summary>(latest − prev) / prev × 100. Null when either price is missing or prev is 0.</summary>
+    private static decimal? PctChange(decimal? latest, decimal? prev) =>
+        latest is null || prev is null || prev == 0
+            ? null
+            : (latest.Value - prev.Value) / prev.Value * 100m;
 
     private async Task AddAsync()
     {

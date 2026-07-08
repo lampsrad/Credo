@@ -53,7 +53,9 @@
                     <tr>
                         <th title="Yahoo Finance ticker symbol">Symbol</th>
                         <th>Name</th>
-                        <th class="text-end" title="Most recent closing price in the History table">Latest Price</th>
+                        <th class="text-end" title="Most recent closing price in the History table">Price</th>
+                        <th class="text-end" title="Previous trading-day close in the History table">Yesterday</th>
+                        <th class="text-end" title="Change from Last Close">↑↓%</th>
                         <th class="text-end" title="Date of latest price row">As Of</th>
                         <th></th>
                     </tr>
@@ -62,7 +64,10 @@
                     @foreach (var item in Items)
                     {
                         (decimal? Price, DateOnly Date) px = default;
+                        (decimal? Price, DateOnly Date) prev = default;
                         var hasPx = item.Symbol != null && LatestPrices.TryGetValue(item.Symbol!, out px);
+                        var hasPrev = item.Symbol != null && PrevDayPrices.TryGetValue(item.Symbol!, out prev);
+                        var changePct = hasPx && hasPrev ? PctChange(px.Price, prev.Price) : null;
                         <tr @key="item.Id">
                             <td>
                                 <button class="chart-btn" title="Show chart"
@@ -75,6 +80,14 @@
                                 @(hasPx && px.Price.HasValue
                                     ? string.Format(CultureInfo.InvariantCulture, "{0:N2}", px.Price)
                                     : "—")
+                            </td>
+                            <td class="text-end">
+                                @(hasPrev && prev.Price.HasValue
+                                    ? string.Format(CultureInfo.InvariantCulture, "{0:N2}", prev.Price)
+                                    : "—")
+                            </td>
+                            <td class="text-end @PctClass(changePct)">
+                                @FormatSignedPct2(changePct)
                             </td>
                             <td class="text-end" style="font-size:0.8rem; color:#9a9a9a;">
                                 @(hasPx ? px.Date.ToString("yyyy-MM-dd") : "—")
