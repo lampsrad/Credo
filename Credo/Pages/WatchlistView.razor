@@ -50,8 +50,8 @@
                         <th title="Yahoo Finance ticker symbol">Symbol</th>
                         <th>Name</th>
                         <th class="text-end" title="Most recent closing price in the History table">Price</th>
-                        <th class="text-end" title="Price − previous close">P/L</th>
-                        <th class="text-end" title="Change from Last Close">↑↓%</th>
+                        <th class="text-end" title="Extended hours % change vs last close">Ext %</th>
+                        <th class="text-end" title="Change from last close">↑↓%</th>
                         <th class="text-end" title="Date of latest price row">As Of</th>
                         <th></th>
                     </tr>
@@ -59,39 +59,47 @@
                 <tbody>
                     @foreach (var item in Items)
                     {
-                        (decimal? Price, DateOnly Date) px = default;
-                        (decimal? Price, DateOnly Date) prev = default;
-                        var hasPx = item.Symbol != null && LatestPrices.TryGetValue(item.Symbol!, out px);
-                        var hasPrev = item.Symbol != null && PrevDayPrices.TryGetValue(item.Symbol!, out prev);
-                        var pl = hasPx && hasPrev ? PriceDiff(px.Price, prev.Price) : null;
-                        var changePct = hasPx && hasPrev ? PctChange(px.Price, prev.Price) : null;
+                        var sym = item.Symbol;
+                        decimal? last = null;
+                        DateOnly? asOf = null;
+                        decimal? prev = null;
+                        decimal? ext = null;
+                        if (sym is not null)
+                        {
+                            if (LatestPrices.TryGetValue(sym, out var px))
+                            {
+                                last = px.Price;
+                                asOf = px.Date;
+                            }
+                            PrevDayPrices.TryGetValue(sym, out prev);
+                            if (ExtHoursPrices.TryGetValue(sym, out var extPx))
+                                ext = extPx;
+                        }
+                        var extPct = PctChange(ext, last);
+                        var changePct = PctChange(last, prev);
                         <tr @key="item.Id">
                             <td>
                                 <button class="chart-btn" title="Show chart"
                                         @onclick="@(() => ShowChartAsync(item))"
                                         @onclick:stopPropagation>📈</button>
-                                @item.Symbol
+                                @sym
                             </td>
                             <td>@item.Name</td>
                             <td class="text-end">
-                                @(hasPx && px.Price.HasValue
-                                    ? string.Format(CultureInfo.InvariantCulture, "{0:N2}", px.Price)
+                                @(last.HasValue
+                                    ? string.Format(CultureInfo.InvariantCulture, "{0:N2}", last)
                                     : "—")
                             </td>
-                            <td class="text-end @PctClass(pl)">
-                                @FormatSignedPrice(pl)
-                            </td>
-                            <td class="text-end @PctClass(changePct)">
-                                @FormatSignedPct2(changePct)
-                            </td>
+                            <td class="text-end @PctClass(extPct)">@FormatSignedPct2(extPct)</td>
+                            <td class="text-end @PctClass(changePct)">@FormatSignedPct2(changePct)</td>
                             <td class="text-end" style="font-size:0.8rem; color:#9a9a9a;">
-                                @(hasPx ? px.Date.ToString("yyyy-MM-dd") : "—")
+                                @(asOf?.ToString("yyyy-MM-dd") ?? "—")
                             </td>
                             <td class="text-center">
                                 <button class="btn-refresh btn-refresh-mini"
                                         style="background:#6b2020; border-color:#6b2020;"
                                         @onclick="@(() => RemoveAsync(item))"
-                                        title="Remove @item.Symbol from watchlist">✕</button>
+                                        title="Remove @sym from watchlist">✕</button>
                             </td>
                         </tr>
                     }

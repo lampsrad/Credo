@@ -1,3 +1,5 @@
+using System.Globalization;
+using System.Text.Json;
 using Credo.Models;
 using Credo.Services;
 using Microsoft.AspNetCore.Components;
@@ -16,8 +18,9 @@ public partial class WatchlistView
 
     private IList<Watchlist>? Items { get; set; }
     private Dictionary<string, (decimal? Price, DateOnly Date)> LatestPrices { get; set; } = new();
-    /// <summary>Previous trading-day close (second-most-recent History row per symbol).</summary>
-    private Dictionary<string, (decimal? Price, DateOnly Date)> PrevDayPrices { get; set; } = new();
+    private Dictionary<string, decimal?> PrevDayPrices { get; set; } = new();
+    /// <summary>Extended-hours price from Yahoo price module (pre preferred in PRE, else post).</summary>
+    private Dictionary<string, decimal> ExtHoursPrices { get; set; } = new();
 
     private string newSymbol = string.Empty;
     private string? addError;
@@ -35,6 +38,7 @@ public partial class WatchlistView
         Items = await repo.GetEntitiesNTAsync<Watchlist>(null);
         LatestPrices = new();
         PrevDayPrices = new();
+        ExtHoursPrices = new();
         if (Items.Count == 0) return;
 
         var symbols = Items
@@ -48,30 +52,88 @@ public partial class WatchlistView
         foreach (var g in allHistory.GroupBy(h => h.Symbol!))
         {
             var ordered = g.OrderByDescending(h => h.Date).ToList();
-            var latest = ordered[0];
-            LatestPrices[g.Key] = (latest.Price, latest.Date);
+            LatestPrices[g.Key] = (ordered[0].Price, ordered[0].Date);
             if (ordered.Count > 1)
+                PrevDayPrices[g.Key] = ordered[1].Price;
+        }
+
+        await LoadExtHoursAsync(symbols);
+    }
+
+    /// <summary>
+    /// Fetches Yahoo <c>price</c> module per symbol (snapshot pre/post fields are unreliable).
+    /// Soft-fails so History columns still render.
+    /// </summary>
+    private async Task LoadExtHoursAsync(IList<string> symbols)
+    {
+        try
+        {
+            var yahoo = new YahooQuotesBuilder().Build();
+            using var gate = new SemaphoreSlim(4);
+            var tasks = symbols.Select(async sym =>
             {
-                var prev = ordered[1];
-                PrevDayPrices[g.Key] = (prev.Price, prev.Date);
+                await gate.WaitAsync();
+                try
+                {
+                    var result = await yahoo.GetModulesAsync(sym, new[] { "price" });
+                    if (!result.HasValue) return (sym, (decimal?)null);
+
+                    foreach (var prop in result.Value)
+                    {
+                        if (prop.Name != "price" || prop.Value.ValueKind != JsonValueKind.Object)
+                            continue;
+                        return (sym, PickExtHoursPrice(prop.Value));
+                    }
+                    return (sym, (decimal?)null);
+                }
+                catch { return (sym, (decimal?)null); }
+                finally { gate.Release(); }
+            });
+
+            foreach (var (sym, price) in await Task.WhenAll(tasks))
+            {
+                if (price is > 0)
+                    ExtHoursPrices[sym] = price.Value;
             }
         }
+        catch { /* leave ExtHoursPrices empty */ }
+    }
+
+    /// <summary>PRE session prefers pre-market (falls back to post); otherwise post (falls back to pre).</summary>
+    private static decimal? PickExtHoursPrice(JsonElement price)
+    {
+        var state = price.TryGetProperty("marketState", out var ms) && ms.ValueKind == JsonValueKind.String
+            ? (ms.GetString() ?? "").ToUpperInvariant()
+            : "";
+
+        var pre = Positive(ReadYahooRaw(price, "preMarketPrice"));
+        var post = Positive(ReadYahooRaw(price, "postMarketPrice"));
+
+        return state is "PRE" or "PREPRE"
+            ? pre ?? post
+            : post ?? pre;
+    }
+
+    private static decimal? Positive(decimal? v) => v is > 0 ? v : null;
+
+    /// <summary>Yahoo module field: number, or <c>{ "raw": n }</c>; empty object → null.</summary>
+    private static decimal? ReadYahooRaw(JsonElement parent, string name)
+    {
+        if (!parent.TryGetProperty(name, out var el)) return null;
+        if (el.ValueKind == JsonValueKind.Number) return el.GetDecimal();
+        if (el.ValueKind == JsonValueKind.Object
+            && el.TryGetProperty("raw", out var raw)
+            && raw.ValueKind == JsonValueKind.Number)
+            return raw.GetDecimal();
+        return null;
     }
 
     private static string PctClass(decimal? v) =>
-        v is null ? "" : (v > 0 ? "text-success" : (v < 0 ? "text-danger" : ""));
+        v is null ? "" : v > 0 ? "text-success" : v < 0 ? "text-danger" : "";
 
     private static string FormatSignedPct2(decimal? v) =>
-        v is null ? "—" : string.Format(System.Globalization.CultureInfo.InvariantCulture, "{0:+#,##0.00;-#,##0.00;0.00}%", v);
+        v is null ? "—" : string.Format(CultureInfo.InvariantCulture, "{0:+#,##0.00;-#,##0.00;0.00}%", v);
 
-    private static string FormatSignedPrice(decimal? v) =>
-        v is null ? "—" : string.Format(System.Globalization.CultureInfo.InvariantCulture, "{0:+#,##0.00;-#,##0.00;0.00}", v);
-
-    /// <summary>latest − prev. Null when either price is missing.</summary>
-    private static decimal? PriceDiff(decimal? latest, decimal? prev) =>
-        latest is null || prev is null ? null : latest.Value - prev.Value;
-
-    /// <summary>(latest − prev) / prev × 100. Null when either price is missing or prev is 0.</summary>
     private static decimal? PctChange(decimal? latest, decimal? prev) =>
         latest is null || prev is null || prev == 0
             ? null
@@ -97,10 +159,9 @@ public partial class WatchlistView
             {
                 var snapshots = await new YahooQuotesBuilder().Build()
                     .GetSnapshotAsync(new[] { sym });
-                if (snapshots.TryGetValue(sym, out var snap) && snap is not null)
-                    name = snap.LongName ?? snap.ShortName ?? sym;
-                else
-                    name = sym;
+                name = snapshots.TryGetValue(sym, out var snap) && snap is not null
+                    ? snap.LongName ?? snap.ShortName ?? sym
+                    : sym;
             }
             catch { name = sym; }
 
@@ -150,7 +211,6 @@ public partial class WatchlistView
         {
             isUpdating = false;
             await LoadAsync();
-            StateHasChanged();
         }
     }
 }
