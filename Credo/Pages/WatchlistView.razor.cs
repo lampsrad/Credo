@@ -57,18 +57,20 @@ public partial class WatchlistView
                 PrevDayPrices[g.Key] = ordered[1].Price;
         }
 
-        await LoadExtHoursAsync(symbols);
+        // Overlay live regular-market + extended hours (History alone can be a stale mid-day insert)
+        await LoadLiveQuotesAsync(symbols);
     }
 
     /// <summary>
-    /// Fetches Yahoo <c>price</c> module per symbol (snapshot pre/post fields are unreliable).
+    /// Yahoo <c>price</c> module: live regularMarketPrice / previousClose + pre/post.
     /// Soft-fails so History columns still render.
     /// </summary>
-    private async Task LoadExtHoursAsync(IList<string> symbols)
+    private async Task LoadLiveQuotesAsync(IList<string> symbols)
     {
         try
         {
             var yahoo = new YahooQuotesBuilder().Build();
+            var today = DateOnly.FromDateTime(DateTime.Today);
             using var gate = new SemaphoreSlim(4);
             var tasks = symbols.Select(async sym =>
             {
@@ -76,30 +78,44 @@ public partial class WatchlistView
                 try
                 {
                     var result = await yahoo.GetModulesAsync(sym, new[] { "price" });
-                    if (!result.HasValue) return (sym, (decimal?)null);
+                    if (!result.HasValue) return (sym, Price: (JsonElement?)null);
 
                     foreach (var prop in result.Value)
                     {
-                        if (prop.Name != "price" || prop.Value.ValueKind != JsonValueKind.Object)
-                            continue;
-                        return (sym, PickExtHoursPrice(prop.Value));
+                        if (prop.Name == "price" && prop.Value.ValueKind == JsonValueKind.Object)
+                            return (sym, Price: (JsonElement?)prop.Value);
                     }
-                    return (sym, (decimal?)null);
+                    return (sym, Price: (JsonElement?)null);
                 }
-                catch { return (sym, (decimal?)null); }
+                catch { return (sym, Price: (JsonElement?)null); }
                 finally { gate.Release(); }
             });
 
-            foreach (var (sym, price) in await Task.WhenAll(tasks))
+            foreach (var (sym, priceEl) in await Task.WhenAll(tasks))
             {
-                if (price is > 0)
-                    ExtHoursPrices[sym] = price.Value;
+                if (priceEl is null) continue;
+                var price = priceEl.Value;
+
+                var regular = Positive(ReadYahooRaw(price, "regularMarketPrice"));
+                if (regular is not null)
+                    LatestPrices[sym] = (regular, today);
+
+                var prevClose = Positive(ReadYahooRaw(price, "regularMarketPreviousClose"));
+                if (prevClose is not null)
+                    PrevDayPrices[sym] = prevClose;
+
+                var ext = PickExtHoursPrice(price);
+                if (ext is > 0)
+                    ExtHoursPrices[sym] = ext.Value;
             }
         }
-        catch { /* leave ExtHoursPrices empty */ }
+        catch { /* keep History-only values */ }
     }
 
-    /// <summary>PRE session prefers pre-market (falls back to post); otherwise post (falls back to pre).</summary>
+    /// <summary>
+    /// Extended hours only outside the regular session. PRE → pre (else last post);
+    /// POST/CLOSED → post (else pre). REGULAR → null so stale pre prints are not used.
+    /// </summary>
     private static decimal? PickExtHoursPrice(JsonElement price)
     {
         var state = price.TryGetProperty("marketState", out var ms) && ms.ValueKind == JsonValueKind.String
@@ -109,9 +125,12 @@ public partial class WatchlistView
         var pre = Positive(ReadYahooRaw(price, "preMarketPrice"));
         var post = Positive(ReadYahooRaw(price, "postMarketPrice"));
 
-        return state is "PRE" or "PREPRE"
-            ? pre ?? post
-            : post ?? pre;
+        return state switch
+        {
+            "PRE" or "PREPRE" => pre ?? post,
+            "POST" or "POSTPOST" or "CLOSED" => post ?? pre,
+            _ => null
+        };
     }
 
     private static decimal? Positive(decimal? v) => v is > 0 ? v : null;

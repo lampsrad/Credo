@@ -165,11 +165,7 @@ public class UpdateService
         var existingHistory = await scope.GetEntitiesAsync<Models.History>(
             h => h.Symbol != null && allSymbols.Contains(h.Symbol));
 
-        var existingKeys = existingHistory
-            .Where(h => h.Symbol is not null)
-            .Select(h => (h.Symbol!, h.Date))
-            .ToHashSet();
-
+        var byKey = IndexHistory(existingHistory);
         var lastDateBySymbol = existingHistory
             .Where(h => h.Symbol is not null)
             .GroupBy(h => h.Symbol!)
@@ -190,22 +186,19 @@ public class UpdateService
                 .WithHistoryStartDate(NodaTime.Instant.FromUtc(
                     lastStored.Year, lastStored.Month, lastStored.Day, 0, 0))
                 .Build();
-            await FetchTickerHistoryAsync(new Ticker { Symbol = symbol }, yahoo, existingKeys, toAdd);
+            await FetchTickerHistoryAsync(new Ticker { Symbol = symbol }, yahoo, byKey, toAdd);
         }
 
-        // Upsert today using prices already in memory — no extra API call
+        // Upsert today (update if row already exists — mid-day snapshot must not freeze forever)
         foreach (var symbol in allSymbols)
         {
             if (!todayPrices.TryGetValue(symbol, out var price) || price is null) continue;
-            if (!existingKeys.Add((symbol, today))) continue;
-            toAdd.Add(new Models.History { Symbol = symbol, Date = today, Price = price });
+            UpsertHistoryPrice(byKey, toAdd, symbol, today, price);
         }
 
         if (toAdd.Count > 0)
-        {
             scope.AddRange(toAdd);
-            await scope.SaveChangesAsync();
-        }
+        await scope.SaveChangesAsync();
     }
 
     public async Task UpdateHistoryAsync()
@@ -216,11 +209,7 @@ public class UpdateService
         if (tickers.Count == 0) { state.Hide(); return; }
 
         var existingHistory = await scope.GetEntitiesAsync<Models.History>();
-        var existingKeys = existingHistory
-            .Where(h => h.Symbol is not null)
-            .Select(h => (h.Symbol!, h.Date))
-            .ToHashSet();
-
+        var byKey = IndexHistory(existingHistory);
         var lastDateBySymbol = existingHistory
             .Where(h => h.Symbol is not null)
             .GroupBy(h => h.Symbol!)
@@ -238,15 +227,13 @@ public class UpdateService
             var yahoo = new YahooQuotesBuilder()
                 .WithHistoryStartDate(NodaTime.Instant.FromUtc(start.Year, start.Month, start.Day, 0, 0))
                 .Build();
-            await FetchTickerHistoryAsync(ticker, yahoo, existingKeys, toAdd);
+            await FetchTickerHistoryAsync(ticker, yahoo, byKey, toAdd);
             done++;
             state.UpdateProgress(done * 100.0 / total, $"Updating History ({done}/{total})");
         }
 
-        // Daily history from Yahoo doesn't include "today" until after market close
-        // (and for indices like ^GSPC, often not even then). Use a live snapshot to
-        // ensure every ticker has a row for today — same treatment securities get
-        // via AppendSecuritiesHistoryAsync.
+        // Daily history from Yahoo doesn't include "today" until after market close.
+        // Live snapshot upserts today so mid-session prices stay current.
         var today = DateOnly.FromDateTime(DateTime.Today);
         var symbols = tickers.Select(t => t.Symbol)
                              .Where(s => s is not null)
@@ -259,22 +246,14 @@ public class UpdateService
             foreach (var ticker in tickers)
             {
                 if (ticker.Symbol is null) continue;
-                if (!existingKeys.Add((ticker.Symbol, today))) continue;
                 if (!snapshots.TryGetValue(ticker.Symbol, out var snap) || snap == null) continue;
-                toAdd.Add(new Models.History
-                {
-                    Symbol = ticker.Symbol,
-                    Date = today,
-                    Price = snap.RegularMarketPrice
-                });
+                UpsertHistoryPrice(byKey, toAdd, ticker.Symbol, today, snap.RegularMarketPrice);
             }
         }
 
         if (toAdd.Count > 0)
-        {
             scope.AddRange(toAdd);
-            await scope.SaveChangesAsync();
-        }
+        await scope.SaveChangesAsync();
         state.UpdateProgress(100);
         state.Hide();
     }
@@ -286,11 +265,7 @@ public class UpdateService
         if (watchlist.Count == 0) { state.Hide(); return; }
 
         var existingHistory = await scope.GetEntitiesAsync<Models.History>();
-        var existingKeys = existingHistory
-            .Where(h => h.Symbol is not null)
-            .Select(h => (h.Symbol!, h.Date))
-            .ToHashSet();
-
+        var byKey = IndexHistory(existingHistory);
         var lastDateBySymbol = existingHistory
             .Where(h => h.Symbol is not null)
             .GroupBy(h => h.Symbol!)
@@ -309,12 +284,13 @@ public class UpdateService
                 .WithHistoryStartDate(NodaTime.Instant.FromUtc(start.Year, start.Month, start.Day, 0, 0))
                 .Build();
             var tempTicker = new Ticker { Symbol = item.Symbol };
-            await FetchTickerHistoryAsync(tempTicker, yahoo, existingKeys, toAdd);
+            await FetchTickerHistoryAsync(tempTicker, yahoo, byKey, toAdd);
             done++;
             state.UpdateProgress(done * 100.0 / total, $"Watchlist History ({done}/{total})");
         }
 
-        // Top-up with today's snapshot (Yahoo daily history lags until market close)
+        // Upsert today's live snapshot (Yahoo daily history lags until market close;
+        // also refreshes a row written earlier in the session at a stale price).
         var today = DateOnly.FromDateTime(DateTime.Today);
         var symbols = watchlist
             .Where(w => w.Symbol is not null)
@@ -327,48 +303,58 @@ public class UpdateService
             foreach (var item in watchlist)
             {
                 if (item.Symbol is null) continue;
-                if (!existingKeys.Add((item.Symbol, today))) continue;
                 if (!snapshots.TryGetValue(item.Symbol, out var snap) || snap == null) continue;
-                toAdd.Add(new Models.History { Symbol = item.Symbol, Date = today, Price = snap.RegularMarketPrice });
+                UpsertHistoryPrice(byKey, toAdd, item.Symbol, today, snap.RegularMarketPrice);
             }
         }
 
         if (toAdd.Count > 0)
-        {
             scope.AddRange(toAdd);
-            await scope.SaveChangesAsync();
-        }
+        await scope.SaveChangesAsync();
         state.UpdateProgress(100);
         state.Hide();
     }
 
-    private static async Task FetchTickerHistoryAsync(Ticker ticker, YahooQuotes yahoo,
-     HashSet<(string, DateOnly)> existingKeys, List<Models.History> toAdd)
+    private static Dictionary<(string Symbol, DateOnly Date), Models.History> IndexHistory(
+        IEnumerable<Models.History> rows) =>
+        rows.Where(h => h.Symbol is not null)
+            .GroupBy(h => (h.Symbol!, h.Date))
+            .ToDictionary(g => g.Key, g => g.First());
+
+    /// <summary>Insert or update a History price for (symbol, date). Tracked rows are mutated in place.</summary>
+    private static void UpsertHistoryPrice(
+        Dictionary<(string Symbol, DateOnly Date), Models.History> byKey,
+        List<Models.History> toAdd,
+        string symbol,
+        DateOnly date,
+        decimal? price)
+    {
+        if (price is null) return;
+        if (byKey.TryGetValue((symbol, date), out var row))
+        {
+            row.Price = price;
+            return;
+        }
+        var h = new Models.History { Symbol = symbol, Date = date, Price = price };
+        byKey[(symbol, date)] = h;
+        toAdd.Add(h);
+    }
+
+    private static async Task FetchTickerHistoryAsync(
+        Ticker ticker,
+        YahooQuotes yahoo,
+        Dictionary<(string Symbol, DateOnly Date), Models.History> byKey,
+        List<Models.History> toAdd)
     {
         try
         {
             var result = await yahoo.GetHistoryAsync(ticker.Symbol!);
             if (!result.HasValue) return;
 
-            var ticks = result.Value.Ticks
-                .OrderBy(t => t.Date)                    // Ensure chronological order
-                .Select(t => new
-                {
-                    Date = DateOnly.FromDateTime(t.Date.ToDateTimeUtc()),
-                    Close = t.Close
-                })
-                .ToList();
-
-            foreach (var current in ticks)
+            foreach (var tick in result.Value.Ticks.OrderBy(t => t.Date))
             {
-                if (!existingKeys.Add((ticker.Symbol!, current.Date)))
-                    continue;
-                toAdd.Add(new Models.History
-                {
-                    Symbol = ticker.Symbol,
-                    Date = current.Date,
-                    Price = (decimal?)current.Close
-                });
+                var date = DateOnly.FromDateTime(tick.Date.ToDateTimeUtc());
+                UpsertHistoryPrice(byKey, toAdd, ticker.Symbol!, date, (decimal?)tick.Close);
             }
         }
         catch (ArgumentException) { /* skip tickers with symbols Yahoo Finance rejects */ }

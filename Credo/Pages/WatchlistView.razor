@@ -49,10 +49,10 @@
                     <tr>
                         <th title="Yahoo Finance ticker symbol">Symbol</th>
                         <th>Name</th>
-                        <th class="text-end" title="Most recent closing price in the History table">Price</th>
-                        <th class="text-end" title="Extended hours % change vs last close">Ext %</th>
+                        <th class="text-end" title="Live regular-market price from Yahoo (falls back to History)">Price</th>
                         <th class="text-end" title="Change from last close">↑↓%</th>
                         <th class="text-end" title="Date of latest price row">As Of</th>
+                        <th class="text-end" title="Extended hours % change vs last close">Ext %</th>
                         <th></th>
                     </tr>
                 </thead>
@@ -90,11 +90,11 @@
                                     ? string.Format(CultureInfo.InvariantCulture, "{0:N2}", last)
                                     : "—")
                             </td>
-                            <td class="text-end @PctClass(extPct)">@FormatSignedPct2(extPct)</td>
                             <td class="text-end @PctClass(changePct)">@FormatSignedPct2(changePct)</td>
                             <td class="text-end" style="font-size:0.8rem; color:#9a9a9a;">
                                 @(asOf?.ToString("yyyy-MM-dd") ?? "—")
                             </td>
+                            <td class="text-end @PctClass(extPct)">@FormatSignedPct2(extPct)</td>
                             <td class="text-center">
                                 <button class="btn-refresh btn-refresh-mini"
                                         style="background:#6b2020; border-color:#6b2020;"
