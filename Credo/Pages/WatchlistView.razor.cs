@@ -5,7 +5,6 @@ using Credo.Services;
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
 using YahooQuotesApi;
-using History = Credo.Models.History;
 
 namespace Credo.Pages;
 
@@ -16,9 +15,16 @@ public partial class WatchlistView
     [Inject] UpdateService updates { get; set; } = default!;
     [Inject] IJSRuntime jsr { get; set; } = default!;
 
+    private sealed class LiveQuote
+    {
+        public decimal? Price { get; init; }
+        public decimal? ChangePercent { get; init; }
+        public DateTime? AsOfUtc { get; init; }
+    }
+
     private IList<Watchlist>? Items { get; set; }
-    private Dictionary<string, (decimal? Price, DateOnly Date)> LatestPrices { get; set; } = new();
-    private Dictionary<string, decimal?> PrevDayPrices { get; set; } = new();
+    /// <summary>Live Yahoo regular-market quote per symbol (not History).</summary>
+    private Dictionary<string, LiveQuote> LiveQuotes { get; set; } = new();
     /// <summary>Extended-hours price from Yahoo price module (pre preferred in PRE, else post).</summary>
     private Dictionary<string, decimal> ExtHoursPrices { get; set; } = new();
 
@@ -36,8 +42,7 @@ public partial class WatchlistView
     private async Task LoadAsync()
     {
         Items = await repo.GetEntitiesNTAsync<Watchlist>(null);
-        LatestPrices = new();
-        PrevDayPrices = new();
+        LiveQuotes = new();
         ExtHoursPrices = new();
         if (Items.Count == 0) return;
 
@@ -46,23 +51,78 @@ public partial class WatchlistView
             .Select(w => w.Symbol!)
             .ToList();
 
-        var allHistory = await repo.GetEntitiesNTAsync<History>(
-            h => h.Symbol != null && symbols.Contains(h.Symbol));
-
-        foreach (var g in allHistory.GroupBy(h => h.Symbol!))
-        {
-            var ordered = g.OrderByDescending(h => h.Date).ToList();
-            LatestPrices[g.Key] = (ordered[0].Price, ordered[0].Date);
-            if (ordered.Count > 1)
-                PrevDayPrices[g.Key] = ordered[1].Price;
-        }
-
+        await LoadLiveQuotesAsync(symbols);
         await LoadExtHoursAsync(symbols);
     }
 
     /// <summary>
+    /// Live regular-market price and day change via Yahoo snapshot (same source as Update All).
+    /// Soft-fails so the table still renders when Yahoo is unreachable.
+    /// Also back-fills blank watchlist names (futures often have empty LongName).
+    /// </summary>
+    private async Task LoadLiveQuotesAsync(IList<string> symbols)
+    {
+        try
+        {
+            var yahoo = new YahooQuotesBuilder().Build();
+            var snapshots = await yahoo.GetSnapshotAsync(symbols);
+            var namesToSave = new List<(int Id, string Name)>();
+
+            foreach (var sym in symbols)
+            {
+                if (!snapshots.TryGetValue(sym, out var snap) || snap is null)
+                    continue;
+
+                DateTime? asOf = null;
+                try { asOf = snap.RegularMarketTime.ToDateTimeUtc(); }
+                catch { /* some instruments omit market time */ }
+
+                LiveQuotes[sym] = new LiveQuote
+                {
+                    Price = snap.RegularMarketPrice,
+                    ChangePercent = (decimal)snap.RegularMarketChangePercent,
+                    AsOfUtc = asOf
+                };
+
+                var displayName = NameFromSnapshot(snap, sym);
+                if (Items is null) continue;
+                foreach (var item in Items.Where(w => w.Symbol == sym && string.IsNullOrWhiteSpace(w.Name)))
+                {
+                    if (displayName == sym) continue; // nothing better than the ticker
+                    item.Name = displayName;
+                    namesToSave.Add((item.Id, displayName));
+                }
+            }
+
+            if (namesToSave.Count > 0)
+            {
+                await using var scope = repo.BeginScope();
+                foreach (var (id, name) in namesToSave)
+                {
+                    var entity = await scope.GetEntityAsync<Watchlist>(w => w.Id == id);
+                    if (entity is null || !string.IsNullOrWhiteSpace(entity.Name)) continue;
+                    entity.Name = name;
+                }
+                await scope.SaveChangesAsync();
+            }
+        }
+        catch { /* leave LiveQuotes empty */ }
+    }
+
+    /// <summary>
+    /// Yahoo futures often set LongName to "" (not null), which blocks <c>?? ShortName</c>.
+    /// Prefer any non-blank long/short name, else the symbol.
+    /// </summary>
+    private static string NameFromSnapshot(Snapshot snap, string symbol)
+    {
+        if (!string.IsNullOrWhiteSpace(snap.LongName)) return snap.LongName.Trim();
+        if (!string.IsNullOrWhiteSpace(snap.ShortName)) return snap.ShortName.Trim();
+        return symbol;
+    }
+
+    /// <summary>
     /// Fetches Yahoo <c>price</c> module per symbol (snapshot pre/post fields are unreliable).
-    /// Soft-fails so History columns still render.
+    /// Soft-fails so regular-market columns still render.
     /// </summary>
     private async Task LoadExtHoursAsync(IList<string> symbols)
     {
@@ -160,7 +220,7 @@ public partial class WatchlistView
                 var snapshots = await new YahooQuotesBuilder().Build()
                     .GetSnapshotAsync(new[] { sym });
                 name = snapshots.TryGetValue(sym, out var snap) && snap is not null
-                    ? snap.LongName ?? snap.ShortName ?? sym
+                    ? NameFromSnapshot(snap, sym)
                     : sym;
             }
             catch { name = sym; }

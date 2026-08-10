@@ -49,10 +49,10 @@
                     <tr>
                         <th title="Yahoo Finance ticker symbol">Symbol</th>
                         <th>Name</th>
-                        <th class="text-end" title="Most recent closing price in the History table">Price</th>
-                        <th class="text-end" title="Extended hours % change vs last close">Ext %</th>
-                        <th class="text-end" title="Change from last close">↑↓%</th>
-                        <th class="text-end" title="Date of latest price row">As Of</th>
+                        <th class="text-end" title="Live Yahoo regular market price">Price</th>
+                        <th class="text-end" title="Live regular market change vs previous close">↑↓%</th>
+                        <th class="text-end" title="Yahoo regular market time (UTC)">As Of</th>
+                        <th class="text-end" title="Extended hours % change vs regular market price">Ext %</th>
                         <th></th>
                     </tr>
                 </thead>
@@ -61,22 +61,21 @@
                     {
                         var sym = item.Symbol;
                         decimal? last = null;
-                        DateOnly? asOf = null;
-                        decimal? prev = null;
+                        decimal? changePct = null;
+                        DateTime? asOfUtc = null;
                         decimal? ext = null;
                         if (sym is not null)
                         {
-                            if (LatestPrices.TryGetValue(sym, out var px))
+                            if (LiveQuotes.TryGetValue(sym, out var q))
                             {
-                                last = px.Price;
-                                asOf = px.Date;
+                                last = q.Price;
+                                changePct = q.ChangePercent;
+                                asOfUtc = q.AsOfUtc;
                             }
-                            PrevDayPrices.TryGetValue(sym, out prev);
                             if (ExtHoursPrices.TryGetValue(sym, out var extPx))
                                 ext = extPx;
                         }
                         var extPct = PctChange(ext, last);
-                        var changePct = PctChange(last, prev);
                         <tr @key="item.Id">
                             <td>
                                 <button class="chart-btn" title="Show chart"
@@ -90,11 +89,11 @@
                                     ? string.Format(CultureInfo.InvariantCulture, "{0:N2}", last)
                                     : "—")
                             </td>
-                            <td class="text-end @PctClass(extPct)">@FormatSignedPct2(extPct)</td>
                             <td class="text-end @PctClass(changePct)">@FormatSignedPct2(changePct)</td>
                             <td class="text-end" style="font-size:0.8rem; color:#9a9a9a;">
-                                @(asOf?.ToString("yyyy-MM-dd") ?? "—")
+                                @(asOfUtc?.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture) ?? "—")
                             </td>
+                            <td class="text-end @PctClass(extPct)">@FormatSignedPct2(extPct)</td>
                             <td class="text-center">
                                 <button class="btn-refresh btn-refresh-mini"
                                         style="background:#6b2020; border-color:#6b2020;"
