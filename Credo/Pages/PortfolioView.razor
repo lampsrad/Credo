@@ -163,7 +163,11 @@
                                        @onclick:stopPropagation
                                        title="Exclude @p.Security_Description from chart" />
                             </td>
-                            <td class="text-start">
+                            <td class="text-start @(selectedRow == p ? "bg-primary" : "")"
+                                style="cursor: pointer; user-select: none;"
+                                title="Show transactions"
+                                @onclick="@(() => SecurityNameClicked(p))"
+                                @onclick:stopPropagation>
                                 @p.Security_Description
                             </td>
                             <td class="text-start">@p.Currency</td>
@@ -256,9 +260,15 @@
     }
 </div>
 
+@if (IsVisibleTransView)
+{
+    <TransViewMod Transactions="Transactions" OnClose="CloseTransView" Title="@transTitle" />
+}
+
 @if (showChart && securityChart is not null)
 {
-    <ChartModal Chart="securityChart" OnClose="CloseChart" Width="chartWidth" CostBase="portfolioCostBase" />
+    <ChartModal Chart="securityChart" OnClose="CloseChart" Width="chartWidth" CostBase="portfolioCostBase"
+                StartAtFirstBuy="startChartAtFirstBuy" />
 }
 
 <div Id="Securities" class="context-menu" @onmouseleave="ContextMenuHide" style="display:none; position:absolute;">

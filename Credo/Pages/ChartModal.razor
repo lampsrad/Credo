@@ -27,6 +27,8 @@
     [Parameter] public EventCallback OnClose { get; set; }
     [Parameter] public int Width { get; set; }
     [Parameter] public decimal? CostBase { get; set; }
+    /// <summary>When true, open with the x-axis starting at the first buy marker (first red dot).</summary>
+    [Parameter] public bool StartAtFirstBuy { get; set; }
 
     private string range = "Percentage";
     private ChartData? visibleChart;
@@ -76,7 +78,8 @@
             chartRendered = true;
             await jsr.InvokeVoidAsync("renderSecurityChart", "chartModalCanvas",
                 visibleChart.Labels, visibleChart.Data, visibleChart.SpyData,
-                visibleChart.Title, visibleChart.TradeData, visibleChart.SellTradeData, isPct, CostBase);
+                visibleChart.Title, visibleChart.TradeData, visibleChart.SellTradeData, isPct, CostBase,
+                StartAtFirstBuy);
         }
     }
 }

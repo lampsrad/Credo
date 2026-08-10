@@ -354,20 +354,33 @@ window.renderMarketValueChart = (canvasId, labels, data, spyData, dataLabel, tra
     buildChart(canvasId, labels, data, spyData, dataLabel, _chartPct, tradeData, sellTradeData, false, costBase);
 };
 
-window.renderSecurityChart = (canvasId, labels, data, spyData, dataLabel, tradeData, sellTradeData, startPct, costBase = null) => {
+window.renderSecurityChart = (canvasId, labels, data, spyData, dataLabel, tradeData, sellTradeData, startPct, costBase = null, startAtFirstBuy = false) => {
     _chartPct = startPct ?? false;
     _displayOffset = 0;
     _show50ma = false;
     _show200ma = false;
     _chartParams = { canvasId, labels, data, spyData, dataLabel, tradeData, sellTradeData, costBase };
-    buildChart(canvasId, labels, data, spyData, dataLabel, _chartPct, tradeData, sellTradeData, true, costBase);
+    // Same effect as clicking the first red buy dot: keep full series in
+    // _chartParams (for MAs) but open the visible window at the first buy.
+    if (startAtFirstBuy && tradeData && tradeData.length) {
+        const idx = tradeData.findIndex(v => v != null);
+        if (idx > 0) _displayOffset = idx;
+    }
+    const s = _displayOffset;
+    buildChart(canvasId,
+        labels.slice(s),
+        data.slice(s),
+        spyData ? spyData.slice(s) : spyData,
+        dataLabel, _chartPct,
+        tradeData ? tradeData.slice(s) : tradeData,
+        sellTradeData ? sellTradeData.slice(s) : sellTradeData,
+        true, costBase);
 };
 
 window.toggleSecurityChartPct = () => {
     _chartPct = !_chartPct;
-    _displayOffset = 0;
-    const p = _chartParams;
-    buildChart(p.canvasId, p.labels, p.data, p.spyData, p.dataLabel, _chartPct, p.tradeData, p.sellTradeData, true, p.costBase ?? null);
+    // Keep current date window (e.g. from first buy / rebase click); only switch Price ↔ %.
+    _rebuildVisible();
 };
 
 function _rebuildVisible() {

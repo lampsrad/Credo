@@ -26,6 +26,7 @@ public partial class PortfolioView
     private bool isRefreshing;
     private bool hasRefreshed;
     private decimal? portfolioCostBase;
+    private bool startChartAtFirstBuy;
     private DateTime? lastUpdated { get; set; }
     private HashSet<int> checkedRows = new();
     private int? editingRowId;
@@ -34,6 +35,9 @@ public partial class PortfolioView
     private bool pendingQtyFocus;
     private int? savedRowId;
     private Dictionary<int, int?> editQty = new();
+    private IList<Transaction>? Transactions { get; set; }
+    private bool IsVisibleTransView { get; set; }
+    private string? transTitle;
 
     private void ToggleChecked(int id)
     {
@@ -124,6 +128,96 @@ public partial class PortfolioView
     {
         selectedRow = p;
     }
+
+    /// <summary>
+    /// Same transaction drill-down as SecuritiesView: signed amounts by code, optional M-Val close-out, Gain total.
+    /// </summary>
+    private void SecurityNameClicked(Portfolio p)
+    {
+        selectedRow = p;
+        var security = p.security;
+        if (security is null)
+        {
+            Transactions = new List<Transaction>();
+            transTitle = p.Security_Description;
+            IsVisibleTransView = true;
+            return;
+        }
+
+        Transactions = TransactionsClone(security.Transactions)
+            .OrderBy(t => t.TradeDate)
+            .ToList();
+        string? cur = string.Empty;
+        foreach (var t in Transactions)
+        {
+            int am = t.TranCode switch
+            {
+                "by" or "li" => -1,
+                _ => 1
+            };
+            t.LocalAmount = (t.LocalAmount ?? 0m) * am;
+            int quant = t.TranCode switch
+            {
+                "sl" or "lo" => -1,
+                _ => 1
+            };
+            t.Quantity = (t.Quantity ?? 0) * quant;
+            cur = t.Currency;
+        }
+        var qtotal = Transactions.Sum(t => t.Quantity);
+        var price = security.Price ?? p.Price;
+        if (qtotal > 0)
+        {
+            Transactions.Add(new Transaction
+            {
+                LocalAmount = qtotal * price,
+                TradeDate = DateOnly.FromDateTime(DateTime.Today),
+                TranCode = "M-Val"
+            });
+        }
+        var lamount = Transactions.Sum(x => x.LocalAmount);
+        if (cur != "USD=X" && security.currency is not null)
+            lamount = lamount * security.currency.Rate;
+        Transactions.Add(new Transaction
+        {
+            Quantity = Transactions.Sum(q => q.Quantity),
+            TradeDate = DateOnly.FromDateTime(DateTime.Today),
+            LocalAmount = lamount,
+            Currency = "USD",
+            TranCode = "Gain"
+        });
+        transTitle = p.Security_Description ?? security.SecurityName;
+        IsVisibleTransView = true;
+    }
+
+    private void CloseTransView()
+    {
+        Transactions?.Clear();
+        IsVisibleTransView = false;
+    }
+
+    private static IList<Transaction> TransactionsClone(ICollection<Transaction> transactions)
+    {
+        var list = new List<Transaction>();
+        foreach (var t in transactions)
+        {
+            list.Add(new Transaction
+            {
+                ID = t.ID,
+                TranCode = t.TranCode,
+                SecurityID = t.SecurityID,
+                Description = t.Description,
+                security = t.security,
+                Security = t.Security,
+                TradeDate = t.TradeDate,
+                Quantity = t.Quantity,
+                Currency = t.Currency,
+                LocalAmount = t.LocalAmount
+            });
+        }
+        return list;
+    }
+
     private async Task ShowChartAsync(Portfolio p)
     {
         var symbol = p.security?.ticker?.Symbol;
@@ -132,6 +226,7 @@ public partial class PortfolioView
         if (data is null) return;
         securityChart = data with { Title = p.Security_Description };
         portfolioCostBase = null;
+        startChartAtFirstBuy = true;
         chartWidth = await jsr.InvokeAsync<int>("getViewportChartWidth");
         showChart = true;
     }
@@ -144,6 +239,7 @@ public partial class PortfolioView
         if (data is null) return;
         securityChart = data with { Title = "Portfolio" };
         portfolioCostBase = 1_339_055m;
+        startChartAtFirstBuy = false;
         chartWidth = await jsr.InvokeAsync<int>("getViewportChartWidth");
         showChart = true;
     }
@@ -152,6 +248,7 @@ public partial class PortfolioView
         showChart = false;
         securityChart = null;
         portfolioCostBase = null;
+        startChartAtFirstBuy = false;
     }
     private static string PctClass(decimal? v) =>
     v is null ? "" : (v > 0 ? "text-success" : (v < 0 ? "text-danger" : ""));
