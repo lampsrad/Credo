@@ -17,7 +17,7 @@ public class UpdateService
     public async Task UpdateSecuritiesAsync()
     {
         state.ShowProgress("Updating Securities");
-        //try
+        try
         {
             await Task.Yield();
             var allTickers = await repo.GetEntitiesNTAsync<Ticker>(x => x.Symbol != "USDUSD=X");
@@ -37,11 +37,11 @@ public class UpdateService
                 try { await tick.WaitForNextTickAsync(); }
                 catch (OperationCanceledException) { break; }
                 if (snapshotTask.IsCompleted) break;
-                progressPercent = Math.Min(95, progressPercent + 10);
+                progressPercent = Math.Min(80, progressPercent + 10);
                 state.UpdateProgress(progressPercent);
             }
             var snapshots = await snapshotTask;
-            state.UpdateProgress(90);
+            state.UpdateProgress(85, "Saving prices");
             await using (var scope = repo.BeginScope())
             {
                 var securities = await scope.GetEntitiesAsync<Security>(x => x.ticker != null);
@@ -80,17 +80,21 @@ public class UpdateService
             var todayPrices = snapshots
                 .Where(kv => kv.Value != null)
                 .ToDictionary(kv => kv.Key, kv => (decimal?)kv.Value!.RegularMarketPrice);
+            state.UpdateProgress(90, "Updating Portfolio");
             await UpdatePortfolioAsync();
             await AppendPortfolioHistoryAsync();
             await SyncAllHistoryAsync(todayPrices, allTickers, watchlist);
             state.UpdateProgress(100);
+        }
+        catch (Exception ex)
+        {
+            state.Hide();
+            await state.ShowMessage("Update Failed", $"Update failed: {ex.Message}", "Ok");
+        }
+        finally
+        {
             state.Hide();
         }
-        //catch (Exception ex)
-        //{
-        //    state.Hide();
-        //    await state.ShowMessage("Update Failed", $"Update failed: {ex.Message}", "Ok");
-        //}
     }
     public async Task UpdatePortfolioAsync()
     {
@@ -181,16 +185,21 @@ public class UpdateService
         var toAdd = new List<Models.History>();
 
         // Back-fill any gap older than yesterday (Yahoo daily history lags ~1 day)
+        int total = allSymbols.Count;
+        int done = 0;
         foreach (var symbol in allSymbols)
         {
             var lastStored = lastDateBySymbol.TryGetValue(symbol, out var d) ? d : defaultStart;
-            if (lastStored >= yesterday) continue; // already up to date
-
-            var yahoo = new YahooQuotesBuilder()
-                .WithHistoryStartDate(NodaTime.Instant.FromUtc(
-                    lastStored.Year, lastStored.Month, lastStored.Day, 0, 0))
-                .Build();
-            await FetchTickerHistoryAsync(new Ticker { Symbol = symbol }, yahoo, existingKeys, toAdd);
+            if (lastStored < yesterday)
+            {
+                var yahoo = new YahooQuotesBuilder()
+                    .WithHistoryStartDate(NodaTime.Instant.FromUtc(
+                        lastStored.Year, lastStored.Month, lastStored.Day, 0, 0))
+                    .Build();
+                await FetchTickerHistoryAsync(new Ticker { Symbol = symbol }, yahoo, existingKeys, toAdd);
+            }
+            done++;
+            state.UpdateProgress(90 + done * 9.0 / total, $"Updating History ({done}/{total})");
         }
 
         // Upsert today using prices already in memory — no extra API call
@@ -351,7 +360,7 @@ public class UpdateService
             if (!result.HasValue) return;
 
             var ticks = result.Value.Ticks
-                .OrderBy(t => t.Date)                    // Ensure chronological order
+                .OrderBy(t => t.Date)
                 .Select(t => new
                 {
                     Date = DateOnly.FromDateTime(t.Date.ToDateTimeUtc()),
@@ -371,7 +380,7 @@ public class UpdateService
                 });
             }
         }
-        catch (ArgumentException) { /* skip tickers with symbols Yahoo Finance rejects */ }
+        catch (Exception) { /* skip tickers Yahoo rejects or fails */ }
     }
 
     private static string? Cash(string? secname)
