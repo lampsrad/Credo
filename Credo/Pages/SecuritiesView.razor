@@ -63,8 +63,7 @@
 <tbody>
     @foreach (var s in Securities)
     {
-        var hasPosition = s.Transactions.Where(t => t.TranCode == "by" || t.TranCode == "li").Sum(t => t.Quantity ?? 0) >
-                          s.Transactions.Where(t => t.TranCode == "sl" || t.TranCode == "lo").Sum(t => t.Quantity ?? 0);
+        var hasPosition = PortfolioSecurityIds.Contains(s.Id);
         var firstBuy = s.Transactions.Where(t => t.TranCode == "by" || t.TranCode == "li")
                                      .Select(t => (DateOnly?)t.TradeDate).Min();
         var heldOneYear = firstBuy.HasValue &&

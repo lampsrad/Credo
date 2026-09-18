@@ -14,6 +14,7 @@ public partial class SecuritiesView
     [Inject] AppConfig cfg { get; set; } = default!;
     private IList<Security>? Securities { get; set; }
     private IList<Transaction>? Transactions { get; set; }
+    private HashSet<int> PortfolioSecurityIds { get; set; } = [];
     private Dictionary<DateOnly, decimal> SpyPrices = new();
     private Security? Security { get; set; }
     bool IsVisibleTransView { get; set; }
@@ -170,6 +171,11 @@ public partial class SecuritiesView
             .ToDictionary(g => g.Key, g => g.OrderByDescending(x => x.ID).First().Price ?? 0m);
         Securities = await repo.GetEntitiesNTAsync<Security>(
             s => s.ticker == null || s.ticker.Symbol == null || !s.ticker.Symbol.EndsWith("=X"));
+        var ports = await repo.GetEntitiesNTAsync<Portfolio>(p => (p.Quantity ?? 0) > 0);
+        PortfolioSecurityIds = ports
+            .Where(p => p.SecurityID.HasValue)
+            .Select(p => p.SecurityID!.Value)
+            .ToHashSet();
         ComputeGainPerc();
         ComputeSpyPerf();
     }
