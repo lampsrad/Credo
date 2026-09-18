@@ -165,7 +165,9 @@ public partial class SecuritiesView
     protected async override Task OnInitializedAsync()
     {
         var spyList = await repo.GetEntitiesNTAsync<History>(x => x.Symbol == "^GSPC");
-        SpyPrices = spyList.ToDictionary(s => s.Date, s => s.Price ?? 0m);
+        SpyPrices = spyList
+            .GroupBy(s => s.Date)
+            .ToDictionary(g => g.Key, g => g.OrderByDescending(x => x.ID).First().Price ?? 0m);
         Securities = await repo.GetEntitiesNTAsync<Security>(
             s => s.ticker == null || s.ticker.Symbol == null || !s.ticker.Symbol.EndsWith("=X"));
         ComputeGainPerc();
