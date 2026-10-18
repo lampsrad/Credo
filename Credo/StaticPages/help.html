@@ -468,7 +468,7 @@
           <tr><td><code>Microsoft.EntityFrameworkCore.SqlServer</code></td><td>10.0.x</td><td>SQL Server EF Core provider</td></tr>
           <tr><td><code>Microsoft.Data.SqlClient</code></td><td>—</td><td>Parameterised SQL for backup / restore</td></tr>
           <tr><td><code>CsvHelper</code></td><td>33.x</td><td>CSV reading with class maps &amp; converters</td></tr>
-          <tr><td><code>PdfPig</code></td><td>0.1.16</td><td>Transaction-summary PDF text and word positions</td></tr>
+          <tr><td><code>PdfPig</code></td><td>0.1.16</td><td>Transaction-summary and portfolio-holdings PDF text and word positions</td></tr>
           <tr><td><code>YahooQuotesApi</code></td><td>7.x</td><td>Snapshots, daily history, FX rates</td></tr>
           <tr><td><code>NodaTime</code></td><td>—</td><td><code>Instant</code> used for Yahoo history start date</td></tr>
           <tr><td><code>Chart.js</code></td><td>CDN</td><td>Canvas-based charting</td></tr>
@@ -1689,29 +1689,50 @@ var transByName = await scope.GetEntitiesAsync&lt;Transaction&gt;(
     <p>
       <strong>File:</strong> the user chooses an Otto1890 portfolio-holdings <code>.pdf</code> in the file dialog.
       Nothing is read from <code>DownloadsPath</code>. Closing the dialog without a file imports nothing and
-      does not show the success banner. A PDF with no holdings is rejected the same way, so existing rows
-      are not deleted.<br>
+      does not show the success banner. A PDF that yields no holdings adds
+      <code>No holdings found in the PDF.</code> to the red error list and leaves every existing
+      <code>Portfolio</code> row in place.<br>
       <strong>Reader:</strong> <a href="https://github.com/UglyToad/PdfPig" target="_blank">PdfPig</a>
       (<code>ReadPortfolioPdfRows</code>). <code>PortfolioMap</code> in <code>Classes/Classes.cs</code> is not registered by this import.
     </p>
     <p>
-      Words are grouped into lines by baseline. The header words
-      <code>Quantity</code>, <code>SecurityDescription</code>, <code>UnitCost</code>, <code>Price</code>,
-      <code>Cost</code>, <code>MarketValue</code>, <code>Pct</code>, and <code>P&amp;L</code> set the columns.
-      Quantity is right-aligned, so a word is quantity when its right edge ends before
-      <code>SecurityDescription</code>. The account line, the subtotal, and the total have no numeric quantity
-      and are skipped. A checkbox glyph to the left of Quantity is ignored.
+      <strong>Signature:</strong> <code>public async Task&lt;int&gt; ImportPortfolioAsync()</code> — opens the
+      dialog, parses the chosen PDF, and returns the number of rows saved. Returns <code>-1</code> when no file
+      is chosen or when the PDF has no holdings. The UI wrapper <code>ImportPortfolio()</code> passes a
+      non-negative result to <code>ShowMessage()</code> and sets the busy flag <code>b5</code> only after a file is chosen.
     </p>
+    <p><strong>Execution flow:</strong></p>
+    <ol>
+      <li><strong>Choose file</strong> — <code>State.ShowFileUpload("Import portfolio", "Choose a portfolio holdings PDF.", ".pdf")</code>
+          opens <code>DialogBox</code> with <code>accept=".pdf"</code>. The bytes are copied while the browser file is still valid (limit 10&nbsp;MB).</li>
+      <li><strong>Read rows</strong> — <code>ReadPortfolioPdfRows</code> uses the same baseline grouping as the transaction reader
+          (a new line when the baseline moves by more than 3pt). On each page:
+          <ul>
+            <li>The header is the line whose words include <code>SecurityDescription</code> together with
+                <code>Quantity</code>, <code>UnitCost</code>, <code>Price</code>, <code>Cost</code>,
+                <code>MarketValue</code>, <code>Pct</code>, and <code>P&amp;L</code>. Those word positions become the columns
+                and stay in force until a later page repeats a complete header.</li>
+            <li>A word more than 80pt to the left of <code>Quantity</code> is dropped. That removes the checkbox glyph.</li>
+            <li>Quantity is right-aligned. A word is quantity when its right edge is more than 2pt left of
+                <code>SecurityDescription</code>. A short number such as <code>73</code> still falls in this column.</li>
+            <li>Each later word is assigned by its left edge to the midpoint between neighbouring headers:
+                security, unit cost, price, cost, market value, percent, then P&amp;L.</li>
+            <li>The account line, <code>Sub Total</code>, and <code>Total</code> have no numeric quantity, so they are skipped.</li>
+          </ul>
+      </li>
+      <li><strong>Save rows</strong> — <code>UpsertPortfolioAsync()</code> matches on <code>Security_Description</code>,
+          updates or inserts, then deletes holdings that were not in the parsed file.</li>
+    </ol>
     <div class="tbl-wrap">
       <table>
         <thead><tr><th>PDF column</th><th>Maps to</th><th>Notes</th></tr></thead>
         <tbody>
           <tr><td><code>Quantity</code></td><td><code>Portfolio.Quantity</code></td><td>Commas stripped. Decimals are rounded to <code>int</code> (<code>0.57</code> → <code>1</code>, <code>390,227.84</code> → <code>390228</code>).</td></tr>
           <tr><td><code>SecurityDescription</code></td><td><code>Portfolio.Security_Description</code></td><td>Match key for upsert, delete, and Security lookup.</td></tr>
-          <tr><td><code>UnitCost</code></td><td><code>Portfolio.Unit_Cost</code></td><td>A leading currency sign (<code>$</code>, <code>A$</code>, <code>£</code>, or the statement’s euro glyph) is stripped.</td></tr>
-          <tr><td><code>Price</code></td><td><code>Portfolio.Price</code></td><td>Same currency stripping. On a new row that matches a Security, this file price is replaced by <code>Security.Price</code>.</td></tr>
-          <tr><td><code>Cost</code></td><td><code>Portfolio.Cost</code></td><td>Total cost basis.</td></tr>
-          <tr><td><code>MarketValue</code></td><td><code>Portfolio.Market_Value</code></td><td>Current market value.</td></tr>
+          <tr><td><code>UnitCost</code></td><td><code>Portfolio.Unit_Cost</code></td><td><code>StripMoney</code> drops a leading currency sign (<code>$</code>, <code>A$</code>, <code>£</code>, or the statement’s euro glyph) and keeps a leading minus. Written only when the holding is new.</td></tr>
+          <tr><td><code>Price</code></td><td><code>Portfolio.Price</code></td><td>Same currency stripping. On a new row that matches a Security, this file price is replaced by <code>Security.Price</code>. An existing row keeps its current price.</td></tr>
+          <tr><td><code>Cost</code></td><td><code>Portfolio.Cost</code></td><td>Total cost basis. Written only when the holding is new.</td></tr>
+          <tr><td><code>MarketValue</code></td><td><code>Portfolio.Market_Value</code></td><td>Current market value. Updated on both new and existing rows.</td></tr>
           <tr><td><code>Pct</code></td><td><code>Portfolio.Pct</code></td><td><code>%</code> and commas stripped.</td></tr>
           <tr><td><code>P&amp;L</code></td><td><code>Portfolio.GainPerc</code></td><td><code>%</code> and commas stripped. A leading minus is kept (<code>-11.27%</code>).</td></tr>
         </tbody>
@@ -1725,10 +1746,12 @@ var transByName = await scope.GetEntitiesAsync&lt;Transaction&gt;(
     </ul>
     <p><strong>Upsert / delete logic</strong> (<code>UpsertPortfolioAsync()</code>):</p>
     <ul>
-      <li><strong>Existing row</strong> (matched by <code>Security_Description</code>): <code>Quantity</code>
-          and <code>Market_Value</code> are updated from the file. Other columns are left unchanged — live
-          <code>Price</code>, <code>Gain</code>, and <code>IRR</code> come from <strong>Update All</strong> /
-          <strong>Recalculate Portfolio</strong>.</li>
+      <li><strong>Existing row</strong> (matched by <code>Security_Description</code>): only <code>Quantity</code>
+          and <code>Market_Value</code> are updated from the PDF. <code>Unit_Cost</code>, <code>Price</code>,
+          <code>Cost</code>, <code>Pct</code>, and <code>GainPerc</code> stay as stored.
+          <strong>Update All</strong> later recomputes <code>Price</code>, <code>Market_Value</code>, <code>Gain</code>,
+          <code>GainPerc</code>, <code>Pct</code>, and <code>IRR</code> from the security price and FX rate.
+          It does not replace <code>Unit_Cost</code> or <code>Cost</code>.</li>
       <li><strong>New row</strong>: a <code>Security</code> is looked up by
           <code>SecurityName == Security_Description</code>. If found, the new Portfolio row inherits
           <code>SecurityID</code>, <code>CurrencyID</code>, and <code>Price</code> from the Security.
