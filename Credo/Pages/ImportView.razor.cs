@@ -4,9 +4,7 @@ using CsvHelper;
 using CsvHelper.Configuration;
 using Microsoft.AspNetCore.Components;
 using System.Globalization;
-using System.IO.Compression;
 using System.Text.RegularExpressions;
-using System.Xml.Linq;
 using UglyToad.PdfPig;
 using UglyToad.PdfPig.Content;
 
@@ -101,29 +99,9 @@ public partial class ImportView
     {
         try
         {
-            b5 = true;
-            if (string.IsNullOrEmpty(cfg.DownloadsPath))
-            {
-                await ShowMessage(0);
+            int cc = await ImportPortfolioAsync();
+            if (cc < 0)
                 return;
-            }
-
-            IEnumerable<Portfolio> rows;
-            var csvFile = Directory.GetFiles(cfg.DownloadsPath, "Portfolio*.csv").FirstOrDefault();
-            if (csvFile is not null)
-                rows = ReadPortfolioCsvRows(csvFile);
-            else
-            {
-                var xlsxFile = Directory.GetFiles(cfg.DownloadsPath, "Portfolio*.xlsx").FirstOrDefault();
-                if (xlsxFile is null)
-                {
-                    await ShowMessage(0);
-                    return;
-                }
-                rows = MapXlsxRowsToPortfolio(ReadPortfolioXlsxRows(xlsxFile));
-            }
-
-            var cc = await UpsertPortfolioAsync(rows);
             await ShowMessage(cc);
         }
         catch (Exception ex)
@@ -133,27 +111,115 @@ public partial class ImportView
             StateHasChanged();
         }
     }
-
-    private List<Portfolio> ReadPortfolioCsvRows(string path)
+    // Returns the number of rows saved. Returns -1 when the dialog is closed
+    // without a file, or when the PDF has no holdings, so the caller does not
+    // show "Imported: 0 records" and the existing portfolio is left in place.
+    public async Task<int> ImportPortfolioAsync()
     {
-        using var reader = new StreamReader(path);
-        using var csv = new CsvReader(reader, CsvConfig());
-        csv.Context.RegisterClassMap<PortfolioMap>();
-        return csv.GetRecords<Portfolio>().ToList();
-    }
-
-    private static IEnumerable<Portfolio> MapXlsxRowsToPortfolio(IEnumerable<PortRow> xlsxRows) =>
-        xlsxRows.Select(row => new Portfolio
+        var file = await state.ShowFileUpload("Import portfolio", "Choose a portfolio holdings PDF.", ".pdf");
+        if (file is null || file.Length == 0)
+            return -1;
+        b5 = true;
+        await using var stream = new MemoryStream(file);
+        var rows = ReadPortfolioPdfRows(stream);
+        if (rows.Count == 0)
         {
-            Security_Description = row.SecurityDescription?.Trim(),
-            Quantity             = ParsePortInt(row.Quantity),
-            Unit_Cost            = ParsePortDecimal(row.UnitCost),
-            Price                = ParsePortDecimal(row.Price),
-            Cost                 = ParsePortDecimal(row.Cost),
-            Market_Value         = ParsePortDecimal(row.MarketValue),
-            Pct                  = ParsePortPct(row.Pct),
-            GainPerc             = ParsePortPct(row.GainPerc),
-        });
+            results.Errors.Add("No holdings found in the PDF.");
+            StateHasChanged();
+            return -1;
+        }
+        return await UpsertPortfolioAsync(rows);
+    }
+    // Quantity is right-aligned, so a short number such as "73" starts near the
+    // security column. Its right edge still ends before SecurityDescription.
+    private static List<Portfolio> ReadPortfolioPdfRows(Stream pdf)
+    {
+        var rows = new List<Portfolio>();
+        using var doc = PdfDocument.Open(pdf);
+        double? qtyX = null, secX = null, unitX = null, priceX = null, costX = null, mktX = null, pctX = null, plX = null;
+        foreach (var page in doc.GetPages())
+        {
+            foreach (var line in GroupPdfLines(page))
+            {
+                var securityHeader = line.Words.FirstOrDefault(w => w.Text == "SecurityDescription");
+                if (securityHeader is not null)
+                {
+                    double? LeftOf(string text) => line.Words.FirstOrDefault(w => w.Text == text)?.BoundingBox.Left;
+                    var q = LeftOf("Quantity");
+                    var unit = LeftOf("UnitCost");
+                    var price = LeftOf("Price");
+                    var cost = LeftOf("Cost");
+                    var market = LeftOf("MarketValue");
+                    var pct = LeftOf("Pct");
+                    var pl = LeftOf("P&L");
+                    if (q is null || unit is null || price is null || cost is null || market is null || pct is null || pl is null)
+                        continue;
+                    qtyX = q;
+                    secX = securityHeader.BoundingBox.Left;
+                    unitX = unit;
+                    priceX = price;
+                    costX = cost;
+                    mktX = market;
+                    pctX = pct;
+                    plX = pl;
+                    continue;
+                }
+                if (secX is null || qtyX is null || unitX is null || priceX is null || costX is null || mktX is null || pctX is null || plX is null)
+                    continue;
+
+                var words = line.Words.Where(w => w.BoundingBox.Left >= qtyX.Value - 80).ToList();
+                if (words.Count == 0)
+                    continue;
+
+                static double Mid(double a, double b) => (a + b) / 2;
+                var secUnit = Mid(secX.Value, unitX.Value);
+                var unitPrice = Mid(unitX.Value, priceX.Value);
+                var priceCost = Mid(priceX.Value, costX.Value);
+                var costMkt = Mid(costX.Value, mktX.Value);
+                var mktPct = Mid(mktX.Value, pctX.Value);
+                var pctPl = Mid(pctX.Value, plX.Value);
+                string Bucket(Word w)
+                {
+                    if (w.BoundingBox.Right < secX.Value - 2) return "q";
+                    var x = w.BoundingBox.Left;
+                    if (x < secUnit) return "s";
+                    if (x < unitPrice) return "u";
+                    if (x < priceCost) return "p";
+                    if (x < costMkt) return "c";
+                    if (x < mktPct) return "m";
+                    if (x < pctPl) return "pct";
+                    return "pl";
+                }
+                string Join(string key) => string.Join(" ", words.Where(w => Bucket(w) == key).Select(w => w.Text));
+                var security = Join("s").Trim();
+                var quantity = Join("q");
+                if (string.IsNullOrWhiteSpace(security))
+                    continue;
+                if (!decimal.TryParse(quantity.Replace(",", "").Replace(" ", ""), NumberStyles.Any, CultureInfo.InvariantCulture, out _))
+                    continue;
+
+                rows.Add(new Portfolio
+                {
+                    Security_Description = security,
+                    Quantity = ParsePortInt(quantity),
+                    Unit_Cost = ParsePortDecimal(StripMoney(Join("u"))),
+                    Price = ParsePortDecimal(StripMoney(Join("p"))),
+                    Cost = ParsePortDecimal(StripMoney(Join("c"))),
+                    Market_Value = ParsePortDecimal(StripMoney(Join("m"))),
+                    Pct = ParsePortPct(StripMoney(Join("pct"))),
+                    GainPerc = ParsePortPct(StripMoney(Join("pl"))),
+                });
+            }
+        }
+        return rows;
+    }
+    private static string StripMoney(string s)
+    {
+        var i = 0;
+        while (i < s.Length && s[i] != '-' && !char.IsDigit(s[i]))
+            i++;
+        return s[i..];
+    }
 
     private async Task<int> UpsertPortfolioAsync(IEnumerable<Portfolio> rows)
     {
@@ -218,91 +284,6 @@ public partial class ImportView
         return await scope.SaveChangesAsync();
     }
 
-    // ── Portfolio xlsx helpers ────────────────────────────────────────────────
-
-    private sealed record PortRow(
-        string? Quantity, string? SecurityDescription, string? UnitCost,
-        string? Price, string? Cost, string? MarketValue, string? Pct, string? GainPerc);
-
-    private static List<PortRow> ReadPortfolioXlsxRows(string path)
-    {
-        var rows = new List<PortRow>();
-        XNamespace ns = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
-        using var zip = ZipFile.OpenRead(path);
-
-        // Shared strings — most text in a standard xlsx is stored here (type="s")
-        string[] shared = [];
-        var ssEntry = zip.GetEntry("xl/sharedStrings.xml");
-        if (ssEntry is not null)
-        {
-            using var ssStream = ssEntry.Open();
-            var ssDoc = XDocument.Load(ssStream);
-            shared = [.. ssDoc.Descendants(ns + "si").Select(si =>
-                string.Concat(si.Descendants(ns + "t").Select(t => t.Value)))];
-        }
-
-        var sheet = zip.GetEntry("xl/worksheets/sheet1.xml");
-        if (sheet is null) return rows;
-        using var stream = sheet.Open();
-        var doc = XDocument.Load(stream);
-
-        // colMap: header text → column letter (built once the header row is found)
-        Dictionary<string, string>? colMap = null;
-
-        foreach (var rowEl in doc.Descendants(ns + "row"))
-        {
-            var cells = new Dictionary<string, string?>();
-            foreach (var c in rowEl.Elements(ns + "c"))
-            {
-                var cref = (string?)c.Attribute("r");
-                if (cref is null) continue;
-                var col = new string(cref.TakeWhile(char.IsLetter).ToArray());
-                var type = (string?)c.Attribute("t");
-                string? val = type switch
-                {
-                    "s" => int.TryParse(c.Element(ns + "v")?.Value, out int idx) && idx < shared.Length
-                            ? shared[idx] : null,
-                    "inlineStr" => c.Element(ns + "is")?.Element(ns + "t")?.Value,
-                    _ => c.Element(ns + "v")?.Value
-                };
-                cells[col] = val;
-            }
-
-            if (cells.Count == 0) continue;
-
-            // Detect header row by Security Description / SecurityDescription
-            if (colMap is null)
-            {
-                if (cells.Values.Any(v =>
-                        string.Equals(v?.Trim(), "Security Description", StringComparison.OrdinalIgnoreCase)
-                        || string.Equals(v?.Trim(), "SecurityDescription", StringComparison.OrdinalIgnoreCase)))
-                    colMap = cells
-                        .Where(kv => kv.Value is not null)
-                        .ToDictionary(kv => kv.Value!.Trim(), kv => kv.Key, StringComparer.OrdinalIgnoreCase);
-                continue; // skip preamble rows and the header row itself
-            }
-
-            string? Cell(params string[] headers)
-            {
-                foreach (var header in headers)
-                    if (colMap.TryGetValue(header, out var c))
-                        return cells.GetValueOrDefault(c);
-                return null;
-            }
-
-            rows.Add(new PortRow(
-                Quantity:            Cell("Quantity"),
-                SecurityDescription: Cell("Security Description", "SecurityDescription"),
-                UnitCost:            Cell("Unit Cost", "UnitCost"),
-                Price:               Cell("Price"),
-                Cost:                Cell("Cost"),
-                MarketValue:         Cell("Market Value", "MarketValue"),
-                Pct:                 Cell("Pct"),
-                GainPerc:            Cell("P&L %")));
-        }
-        return rows;
-    }
-
     private static decimal? ParsePortDecimal(string? s)
     {
         if (string.IsNullOrWhiteSpace(s)) return null;
@@ -320,7 +301,7 @@ public partial class ImportView
     private static decimal ParsePortPct(string? s)
     {
         if (string.IsNullOrWhiteSpace(s)) return 0m;
-        var cleaned = s.Replace("%", "").Replace(" ", "").Trim();
+        var cleaned = s.Replace("%", "").Replace(",", "").Replace(" ", "").Trim();
         return decimal.TryParse(cleaned, NumberStyles.Any, CultureInfo.InvariantCulture, out var v) ? v : 0m;
     }
     private async Task ImportSecurities()

@@ -492,7 +492,7 @@
           <tr><td><code>/transactions/{Data}</code></td><td>TransactionsView.razor</td><td>Fee variant (Data = "dp")</td></tr>
           <tr><td><code>/tickers</code></td><td>TickerView.razor</td><td>Ticker symbol list (symbol, name, currency)</td></tr>
           <tr><td><code>/expenses</code></td><td>Expenses.razor</td><td>Expense tracking</td></tr>
-          <tr><td><code>/import</code></td><td>ImportView.razor</td><td>Broker file import for Tickers, Currencies, Securities, Portfolio (CSV / xlsx) and Transactions (PDF you choose); Link Trans repair</td></tr>
+          <tr><td><code>/import</code></td><td>ImportView.razor</td><td>Broker file import for Tickers, Currencies, and Securities; Portfolio and Transactions are PDFs you choose; Link Trans repair</td></tr>
           <tr><td><code>/backup/{action}</code></td><td>Backup.razor</td><td>Backup &amp; Restore (action = "Backup" | "Restore")</td></tr>
           <tr><td><code>/help.html</code></td><td>StaticPages/help.html</td><td>This developer reference (served by a custom <code>MapGet</code> in Program.cs)</td></tr>
         </tbody>
@@ -517,7 +517,7 @@
       </div>
       <div class="card">
         <h4>&#128228; Import</h4>
-        <p>Import broker data: Tickers, Currencies, Securities, and Portfolio from Downloads, Transactions from a PDF you choose, plus Link Trans repair.</p>
+        <p>Import broker data: Tickers and Currencies from Downloads, Securities from the ticker table, Portfolio and Transactions from a PDF you choose, plus Link Trans repair.</p>
         <div class="route">/import</div>
       </div>
       <div class="card">
@@ -1280,15 +1280,15 @@ builder.Services.AddScoped&lt;GraphService&gt;();</pre>
     <p>
       All imports are triggered from <code>/import</code> (<code>ImportView.razor</code>). Five buttons import
       broker data; a sixth — <strong>Link Trans</strong> — repairs transaction foreign keys without reading any
-      file. Tickers, Currencies, Securities, Portfolio, and Link Trans turn red as soon as they are clicked.
-      Transactions turns red only after a PDF is chosen. A success banner shows the number of rows written
-      and disappears after five seconds. Closing the transaction dialog without a file writes nothing and
-      shows no banner. A failed Transactions or Portfolio import adds the exception message to the red
+      file. Tickers, Currencies, Securities, and Link Trans turn red as soon as they are clicked.
+      Transactions and Portfolio turn red only after a PDF is chosen. A success banner shows the number of rows written
+      and disappears after five seconds. Closing either PDF dialog without a file writes nothing and
+      shows no banner. A PDF with no holdings is not applied, so the current portfolio stays in place.
+      A failed Transactions or Portfolio import adds the exception message to the red
       error list on the page. CSV parsing uses the
       <a href="https://joshclose.github.io/CsvHelper/" target="_blank">CsvHelper</a> library with class maps
-      defined in <code>Classes/Classes.cs</code>. Portfolio also accepts a native broker
-      <code>.xlsx</code> when no matching CSV is present. Transactions asks you to choose an Otto1890
-      transaction-summary PDF and reads it with PdfPig.
+      defined in <code>Classes/Classes.cs</code>. Transactions and Portfolio ask you to choose an Otto1890
+      PDF and read it with PdfPig.
     </p>
 
     <h3>Recommended import order</h3>
@@ -1685,27 +1685,35 @@ var transByName = await scope.GetEntitiesAsync&lt;Transaction&gt;(
     </ul>
 
     <!-- ── PORTFOLIO ── -->
-    <h3>5 · Portfolio — <code>ImportPortfolio()</code></h3>
+    <h3>5 · Portfolio — <code>ImportPortfolio()</code> / <code>ImportPortfolioAsync()</code></h3>
     <p>
-      <strong>File:</strong> first file matching <code>Portfolio*.csv</code> in <code>DownloadsPath</code> is
-      <strong>preferred</strong>; if none is found, it falls back to <code>Portfolio*.xlsx</code>.<br>
-      <strong>Typical workflow:</strong> the broker supplies <code>.xlsx</code>; save/export as CSV into
-      <code>Downloads\Credo\</code> before clicking <strong>Portfolio</strong>.<br>
-      <strong>Class map (CSV):</strong> <code>PortfolioMap</code> &nbsp;·&nbsp;
-      <strong>XLSX reader:</strong> <code>ReadPortfolioXlsxRows()</code>
+      <strong>File:</strong> the user chooses an Otto1890 portfolio-holdings <code>.pdf</code> in the file dialog.
+      Nothing is read from <code>DownloadsPath</code>. Closing the dialog without a file imports nothing and
+      does not show the success banner. A PDF with no holdings is rejected the same way, so existing rows
+      are not deleted.<br>
+      <strong>Reader:</strong> <a href="https://github.com/UglyToad/PdfPig" target="_blank">PdfPig</a>
+      (<code>ReadPortfolioPdfRows</code>). <code>PortfolioMap</code> in <code>Classes/Classes.cs</code> is not registered by this import.
+    </p>
+    <p>
+      Words are grouped into lines by baseline. The header words
+      <code>Quantity</code>, <code>SecurityDescription</code>, <code>UnitCost</code>, <code>Price</code>,
+      <code>Cost</code>, <code>MarketValue</code>, <code>Pct</code>, and <code>P&amp;L</code> set the columns.
+      Quantity is right-aligned, so a word is quantity when its right edge ends before
+      <code>SecurityDescription</code>. The account line, the subtotal, and the total have no numeric quantity
+      and are skipped. A checkbox glyph to the left of Quantity is ignored.
     </p>
     <div class="tbl-wrap">
       <table>
-        <thead><tr><th>Column <small>(broker / spaced header)</small></th><th>Maps to</th><th>Notes</th></tr></thead>
+        <thead><tr><th>PDF column</th><th>Maps to</th><th>Notes</th></tr></thead>
         <tbody>
-          <tr><td><code>Quantity</code></td><td><code>Portfolio.Quantity</code></td><td>Decimal in file, spaces stripped, rounded to <code>int</code>.</td></tr>
-          <tr><td><code>SecurityDescription</code> / <code>Security Description</code></td><td><code>Portfolio.Security_Description</code></td><td>Match key for upsert, delete, and Security lookup.</td></tr>
-          <tr><td><code>UnitCost</code> / <code>Unit Cost</code></td><td><code>Portfolio.Unit_Cost</code></td><td>Cost per share at time of purchase.</td></tr>
-          <tr><td><code>Price</code></td><td><code>Portfolio.Price</code></td><td>Current market price per share.</td></tr>
-          <tr><td><code>Cost</code></td><td><code>Portfolio.Cost</code></td><td>Total cost basis (Quantity × Unit Cost).</td></tr>
-          <tr><td><code>MarketValue</code> / <code>Market Value</code></td><td><code>Portfolio.Market_Value</code></td><td>Current market value (Quantity × Price).</td></tr>
-          <tr><td><code>Pct</code></td><td><code>Portfolio.Pct</code></td><td>% sign stripped before decimal parse.</td></tr>
-          <tr><td><code>P&amp;L %</code></td><td><code>Portfolio.GainPerc</code></td><td>% sign stripped before decimal parse.</td></tr>
+          <tr><td><code>Quantity</code></td><td><code>Portfolio.Quantity</code></td><td>Commas stripped. Decimals are rounded to <code>int</code> (<code>0.57</code> → <code>1</code>, <code>390,227.84</code> → <code>390228</code>).</td></tr>
+          <tr><td><code>SecurityDescription</code></td><td><code>Portfolio.Security_Description</code></td><td>Match key for upsert, delete, and Security lookup.</td></tr>
+          <tr><td><code>UnitCost</code></td><td><code>Portfolio.Unit_Cost</code></td><td>A leading currency sign (<code>$</code>, <code>A$</code>, <code>£</code>, or the statement’s euro glyph) is stripped.</td></tr>
+          <tr><td><code>Price</code></td><td><code>Portfolio.Price</code></td><td>Same currency stripping. On a new row that matches a Security, this file price is replaced by <code>Security.Price</code>.</td></tr>
+          <tr><td><code>Cost</code></td><td><code>Portfolio.Cost</code></td><td>Total cost basis.</td></tr>
+          <tr><td><code>MarketValue</code></td><td><code>Portfolio.Market_Value</code></td><td>Current market value.</td></tr>
+          <tr><td><code>Pct</code></td><td><code>Portfolio.Pct</code></td><td><code>%</code> and commas stripped.</td></tr>
+          <tr><td><code>P&amp;L</code></td><td><code>Portfolio.GainPerc</code></td><td><code>%</code> and commas stripped. A leading minus is kept (<code>-11.27%</code>).</td></tr>
         </tbody>
       </table>
     </div>
@@ -1772,8 +1780,8 @@ var transByName = await scope.GetEntitiesAsync&lt;Transaction&gt;(
     <h3>Shared infrastructure</h3>
 
     <h4>CsvConfiguration (<code>CsvConfig()</code>)</h4>
-    <p>Tickers, Currencies, and the Portfolio CSV path reuse the same
-      <code>CsvConfiguration</code>. The transaction PDF reader does not:</p>
+    <p>Tickers and Currencies reuse the same
+      <code>CsvConfiguration</code>. The transaction and portfolio PDF readers do not:</p>
     <ul>
       <li>Header record expected (<code>HasHeaderRecord = true</code>).</li>
       <li>Comma delimiter, <code>InvariantCulture</code>.</li>
