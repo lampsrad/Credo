@@ -7,6 +7,8 @@ using System.Globalization;
 using System.IO.Compression;
 using System.Text.RegularExpressions;
 using System.Xml.Linq;
+using UglyToad.PdfPig;
+using UglyToad.PdfPig.Content;
 
 namespace Credo.Pages;
 
@@ -360,87 +362,133 @@ public partial class ImportView
     }
     private async Task ImportTransactions()
     {
-        b3 = true;
-        int cc = await ImportTransactionsAsync();
-        await ShowMessage(cc);
+        try
+        {
+            int cc = await ImportTransactionsAsync();
+            if (cc < 0)
+                return;
+            await ShowMessage(cc);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "ImportTransactions failed");
+            results.Errors.Add(ex.Message);
+            StateHasChanged();
+        }
     }
+    // Returns the number of rows saved. Returns -1 when the dialog is closed
+    // without a file, so the caller does not show "Imported: 0 records".
     public async Task<int> ImportTransactionsAsync()
     {
-        if (string.IsNullOrEmpty(cfg.DownloadsPath)) return 0;
-
-        // Prefer the broker's native .xlsx: its Trade Date cells hold clean dd/mm/yy text.
-        // Excel's "Save As .csv" silently rewrites those dates (10/02/16 -> 2010-02-16), so a
-        // .csv is only used as a fallback when no .xlsx is present.
-        var xlsx = Directory.GetFiles(cfg.DownloadsPath, "Transaction*.xlsx").FirstOrDefault();
-        if (xlsx is not null)
-            return await SaveTxRowsAsync(ReadXlsxRows(xlsx));
-
-        var exfile = Directory.GetFiles(cfg.DownloadsPath, "Transaction*.csv").FirstOrDefault();
-        if (exfile is null) return 0;
-        return await SaveTxRowsAsync(ReadCsvRows(exfile));
+        var file = await state.ShowFileUpload("Import transactions", "Choose a transaction summary PDF.", ".pdf");
+        if (file is null || file.Length == 0)
+            return -1;
+        b3 = true;
+        await using var stream = new MemoryStream(file);
+        return await SaveTxRowsAsync(ReadPdfRows(stream));
     }
-    // One raw transaction row, source-agnostic (xlsx or csv).
     private sealed record TxRow(
         string? TranCode, string? Description, string? Security,
-        string? TradeDate, string? Quantity, string? Currency, string? LocalAmount);
-    // Reads the broker .xlsx directly (it is a zipped OpenXML package). Cells are inline strings
-    // or numeric values, mapped by fixed column: B Tran Code, D Description, F Security,
-    // H Trade Date, L Quantity, N Local Currency, Q Local Amount. Preamble/header/footer rows
-    // are tolerated and filtered downstream by SaveTxRowsAsync.
-    private static List<TxRow> ReadXlsxRows(string path)
+        string? TradeDate, string? Quantity, string? Currency, string? LocalAmount, string? Note);
+    // Codes and notes share the left margin. A wrapped security token (INC, ADR, SHS)
+    // sits about 100pt to the right. The header word "Security" is inset from that
+    // column, so a line is a wrap when it starts 60pt or more to the right of "Code".
+    private static readonly Regex TxLineRegex = new(
+        @"^(?<code>[a-z]{2})\s+(?<body>.+?)\s+(?<trade>\d{2}/\d{2}/\d{2})(?:\s+(?<settle>\d{2}/\d{2}/\d{2}))?(?:\s+(?<qty>[\d,]+(?:\.\d+)?))?\s+(?<ccy>[A-Z]{3})\s+(?<amt>-?[\d,]+\.\d+)$",
+        RegexOptions.Compiled | RegexOptions.CultureInvariant);
+    private static List<TxRow> ReadPdfRows(Stream pdf)
     {
         var rows = new List<TxRow>();
-        XNamespace ns = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
-        using var zip = ZipFile.OpenRead(path);
-        var sheet = zip.GetEntry("xl/worksheets/sheet1.xml");
-        if (sheet is null) return rows;
-        using var stream = sheet.Open();
-        var doc = XDocument.Load(stream);
-        foreach (var row in doc.Descendants(ns + "row"))
+        using var doc = PdfDocument.Open(pdf);
+        foreach (var page in doc.GetPages())
         {
-            var cells = new Dictionary<string, string?>();
-            foreach (var c in row.Elements(ns + "c"))
+            double codeX = 47;
+            foreach (var line in GroupPdfLines(page))
             {
-                var cref = (string?)c.Attribute("r");
-                if (cref is null) continue;
-                var col = new string(cref.TakeWhile(char.IsLetter).ToArray());
-                // inlineStr -> <is>...<t> ; numeric/str -> <v>
-                cells[col] = c.Element(ns + "is")?.Value ?? c.Element(ns + "v")?.Value;
-            }
-            if (cells.Count == 0) continue;
-            rows.Add(new TxRow(
-                Col(cells, "B"), Col(cells, "D"), Col(cells, "F"),
-                Col(cells, "H"), Col(cells, "L"), Col(cells, "N"), Col(cells, "Q")));
-        }
-        return rows;
+                var codeWord = line.Words.FirstOrDefault(w => w.Text == "Code");
+                if (codeWord is not null)
+                    codeX = codeWord.BoundingBox.Left;
 
-        static string? Col(Dictionary<string, string?> d, string k) => d.TryGetValue(k, out var v) ? v : null;
-    }
-    // Fallback reader for an Excel-exported .csv (preamble rows above the real header).
-    private List<TxRow> ReadCsvRows(string path)
-    {
-        var rows = new List<TxRow>();
-        using var reader = new StreamReader(path);
-        using var csv = new CsvReader(reader, CsvConfig());
-        bool headerFound = false;
-        while (csv.Read())
-        {
-            if (csv.GetField(1)?.Trim() == "Tran Code")
-            {
-                csv.ReadHeader();
-                headerFound = true;
-                break;
+                var text = string.Join(" ", line.Words.Select(w => w.Text)).Trim();
+                if (SkipPdfLine(text))
+                    continue;
+
+                var match = TxLineRegex.Match(text);
+                if (match.Success)
+                {
+                    var (description, security) = SplitTxBody(match.Groups["body"].Value);
+                    rows.Add(new TxRow(
+                        match.Groups["code"].Value,
+                        description,
+                        security,
+                        match.Groups["trade"].Value,
+                        match.Groups["qty"].Success ? match.Groups["qty"].Value : null,
+                        match.Groups["ccy"].Value,
+                        match.Groups["amt"].Value,
+                        null));
+                    continue;
+                }
+
+                if (rows.Count == 0)
+                    continue;
+
+                var last = rows[^1];
+                if (line.Words[0].BoundingBox.Left >= codeX + 60)
+                    rows[^1] = last with { Security = $"{last.Security} {text}".Trim() };
+                else
+                {
+                    var note = string.IsNullOrEmpty(last.Note) ? text : $"{last.Note} {text}";
+                    rows[^1] = last with { Note = note };
+                }
             }
         }
-        if (!headerFound) return rows;
-        while (csv.Read())
-        {
-            rows.Add(new TxRow(
-                csv.GetField("Tran Code"), csv.GetField("Description"), csv.GetField("Security"),
-                csv.GetField("Trade Date"), csv.GetField("Quantity"),
-                csv.GetField("Local Currency"), csv.GetField("Local Amount")));
-        }
         return rows;
+    }
+    private static List<PdfLine> GroupPdfLines(Page page)
+    {
+        var words = page.GetWords()
+            .OrderByDescending(w => w.BoundingBox.Bottom)
+            .ThenBy(w => w.BoundingBox.Left)
+            .ToList();
+        var lines = new List<PdfLine>();
+        foreach (var word in words)
+        {
+            if (lines.Count == 0 || Math.Abs(lines[^1].Y - word.BoundingBox.Bottom) > 3)
+                lines.Add(new PdfLine(word.BoundingBox.Bottom, [word]));
+            else
+                lines[^1].Words.Add(word);
+        }
+        foreach (var line in lines)
+            line.Words.Sort((a, b) => a.BoundingBox.Left.CompareTo(b.BoundingBox.Left));
+        return lines;
+    }
+    private static bool SkipPdfLine(string text)
+    {
+        if (text.Length == 0 || text.All(char.IsDigit)) return true;
+        if (text.Contains("Sanlam", StringComparison.OrdinalIgnoreCase)) return true;
+        if (text.Contains("Lamprecht", StringComparison.OrdinalIgnoreCase)) return true;
+        if (text.Contains("Transaction Summary", StringComparison.OrdinalIgnoreCase)) return true;
+        if (text.StartsWith("From ", StringComparison.OrdinalIgnoreCase)) return true;
+        if (text.Contains("Description", StringComparison.Ordinal) && text.Contains("Security", StringComparison.Ordinal)) return true;
+        if (text.StartsWith("Tran ", StringComparison.Ordinal)) return true;
+        return false;
+    }
+    private static (string Description, string Security) SplitTxBody(string body)
+    {
+        var tokens = body.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        var split = 0;
+        for (; split < tokens.Length; split++)
+        {
+            var letters = tokens[split].Where(char.IsLetter).ToArray();
+            if (letters.Length > 0 && letters.All(char.IsUpper))
+                break;
+        }
+        return (string.Join(' ', tokens.Take(split)), string.Join(' ', tokens.Skip(split)));
+    }
+    private sealed class PdfLine(double y, List<Word> words)
+    {
+        public double Y { get; } = y;
+        public List<Word> Words { get; } = words;
     }
     private async Task<int> SaveTxRowsAsync(IReadOnlyList<TxRow> rows)
     {
@@ -449,30 +497,10 @@ public partial class ImportView
             .Select(t => (t.TradeDate, t.LocalAmount))
             .ToHashSet();
         var transactions = new List<Transaction>();
-        Transaction? current = null;
         foreach (var row in rows)
         {
             var trancode = row.TranCode?.Trim();
             if (string.IsNullOrEmpty(trancode)) continue;
-
-            // Detail row (long free-text in the Tran Code column, Description/Security blank).
-            // For "lo" transactions booked against a placeholder CASH security, the real description
-            // lives on this following row — use it to replace the generic "CASH ..." security name.
-            if (trancode.Length > 4)
-            {
-                if (current is not null
-                    && string.Equals(current.TranCode, "lo", StringComparison.OrdinalIgnoreCase)
-                    && current.Security is not null
-                    && current.Security.StartsWith("CASH", StringComparison.OrdinalIgnoreCase)
-                    && string.IsNullOrEmpty(row.Description)
-                    && string.IsNullOrEmpty(row.Security))
-                {
-                    current.Security = trancode;
-                }
-                continue;
-            }
-
-            current = null;
             if (string.IsNullOrWhiteSpace(row.TradeDate)) continue;
             var tradedate = DateRegex(DateRegex(row.TradeDate));
             if (!DateOnly.TryParse(tradedate, out var parsedDate)) continue;
@@ -482,7 +510,7 @@ public partial class ImportView
             var localAmt = decimal.TryParse(rawAmt, NumberStyles.Any, CultureInfo.InvariantCulture, out var amt) ? amt : (decimal?)null;
             if (existing.Contains((parsedDate, localAmt)))
                 continue;
-            current = new Transaction
+            transactions.Add(new Transaction
             {
                 TranCode = trancode,
                 Description = row.Description,
@@ -491,9 +519,9 @@ public partial class ImportView
                 Quantity = int.TryParse(qfield, out int i) ? i
                     : (decimal.TryParse(qfield, NumberStyles.Any, CultureInfo.InvariantCulture, out decimal d) ? (int)Math.Round(d) : null),
                 Currency = row.Currency,
-                LocalAmount = localAmt
-            };
-            transactions.Add(current);
+                LocalAmount = localAmt,
+                Note = row.Note
+            });
         }
         scope.AddRange(transactions);
         return await scope.SaveChangesAsync();

@@ -55,7 +55,8 @@
     private bool IsVisibleFileChoose;
     private bool btOk, btYes, btNo, IsVisibleDialogBox, IsVisibleProgress;
     private TaskCompletionSource<string>? tcs;
-    private TaskCompletionSource<IBrowserFile?>? tcsBrowserFile;
+    private TaskCompletionSource<byte[]?>? tcsBrowserFile;
+    private const long MaxUploadBytes = 10 * 1024 * 1024;
 
 
     private Task<string> FileNameGet()
@@ -66,20 +67,23 @@
         InvokeAsync(StateHasChanged);
         return tcs.Task;
     }
-    private Task<IBrowserFile?> FileUpload(string title, string message, string destination)
+    private async Task<byte[]?> FileUpload(string title, string message, string accept)
     {
-        tcsBrowserFile = new TaskCompletionSource<IBrowserFile?>();
+        var pending = new TaskCompletionSource<byte[]?>();
+        tcsBrowserFile = pending;
         IsVisibleDialogBox = true;
         IsVisibleFileChoose = true;
+        FileType = string.IsNullOrWhiteSpace(accept) ? ".csv" : accept;
         Title = title;
         Message = message;
-        InvokeAsync(StateHasChanged);
-        return tcsBrowserFile.Task;
+        await InvokeAsync(StateHasChanged);
+        return await pending.Task;
     }
     private void Cancel()
     {
+        tcsBrowserFile?.TrySetResult(null);
+        tcsBrowserFile = null;
         Default();
-        return;
     }
     public void Default()
     {
@@ -91,23 +95,40 @@
         IsVisibleDialogBox = false;
         IsVisibleProgress = false;
         IsVisibleFileChoose = false;
+        FileType = ".csv";
         StateHasChanged();
     }
     public void Dispose()
     {
+        tcsBrowserFile?.TrySetResult(null);
         state.MessageShow -= MessageShow;
         state.Progress -= Progress;
         state.FileUpload -= FileUpload;
     }
-    private void LoadFiles(InputFileChangeEventArgs args)
+    private async Task LoadFiles(InputFileChangeEventArgs args)
     {
-        InvokeAsync(StateHasChanged);
-        var file = args.File;
-        if (file != null)
-            tcsBrowserFile?.SetResult(file);
-        else
-            tcsBrowserFile?.SetResult(null);
-        Default();
+        try
+        {
+            var file = args.File;
+            byte[]? bytes = null;
+            if (file is not null)
+            {
+                await using var stream = file.OpenReadStream(maxAllowedSize: MaxUploadBytes);
+                using var buffer = new MemoryStream();
+                await stream.CopyToAsync(buffer);
+                bytes = buffer.ToArray();
+            }
+            tcsBrowserFile?.TrySetResult(bytes);
+        }
+        catch (Exception ex)
+        {
+            tcsBrowserFile?.TrySetException(ex);
+        }
+        finally
+        {
+            tcsBrowserFile = null;
+            Default();
+        }
     }
     private Task<string> MessageShow(string title, string message, string button)
     {

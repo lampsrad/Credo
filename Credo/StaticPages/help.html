@@ -490,7 +490,7 @@
           <tr><td><code>/transactions/{Data}</code></td><td>TransactionsView.razor</td><td>Fee variant (Data = "dp")</td></tr>
           <tr><td><code>/tickers</code></td><td>TickerView.razor</td><td>Ticker symbol list (symbol, name, currency)</td></tr>
           <tr><td><code>/expenses</code></td><td>Expenses.razor</td><td>Expense tracking</td></tr>
-          <tr><td><code>/import</code></td><td>ImportView.razor</td><td>Broker file import (CSV / xlsx) for Tickers, Currencies, Transactions, Securities, Portfolio; Link Trans repair</td></tr>
+          <tr><td><code>/import</code></td><td>ImportView.razor</td><td>Broker file import for Tickers, Currencies, Securities, Portfolio (CSV / xlsx) and Transactions (PDF you choose); Link Trans repair</td></tr>
           <tr><td><code>/backup/{action}</code></td><td>Backup.razor</td><td>Backup &amp; Restore (action = "Backup" | "Restore")</td></tr>
           <tr><td><code>/help.html</code></td><td>wwwroot/help.html</td><td>This developer reference (served by a custom <code>MapGet</code> in Program.cs)</td></tr>
         </tbody>
@@ -557,7 +557,7 @@
           </tr>
           <tr>
             <td><code>Transaction</code></td><td><code>Transactions</code></td>
-            <td>ID, TranCode, Description, SecurityID, Security, TradeDate (<code>DateOnly</code>), Quantity, Currency, LocalAmount.</td>
+            <td>ID, TranCode, Description, SecurityID, Security, TradeDate (<code>DateOnly</code>), Quantity, Currency, LocalAmount, Note.</td>
           </tr>
           <tr>
             <td><code>Ticker</code></td><td><code>Tickers</code></td>
@@ -1148,7 +1148,7 @@ await scope.SaveChangesAsync();</pre>
         <tbody>
           <tr><td><code>Progress (event Action&lt;bool&gt;)</code></td><td>Show/hide progress modal.</td></tr>
           <tr><td><code>FileNameGet (event Func&lt;Task&lt;string&gt;&gt;)</code></td><td>OS file-picker; returns selected path.</td></tr>
-          <tr><td><code>FileUpload (event Func&lt;string,string,string,Task&lt;IBrowserFile?&gt;&gt;)</code></td><td>Browser upload dialog.</td></tr>
+          <tr><td><code>FileUpload (event Func&lt;string,string,string,Task&lt;byte[]?&gt;&gt;)</code></td><td>Browser file dialog. Arguments are title, message, and the accept filter (for example <code>.pdf</code>). Returns the selected file bytes, or null if the dialog is closed.</td></tr>
           <tr><td><code>MessageShow (event Func&lt;string,string,string,Task&lt;string&gt;&gt;)</code></td><td>Modal dialog (title, message, button text).</td></tr>
           <tr><td><code>ProgressVal (double)</code></td><td>Current progress 0–100; clamped on set.</td></tr>
           <tr><td><code>TitleD (string?)</code></td><td>Current progress title.</td></tr>
@@ -1280,8 +1280,9 @@ builder.Services.AddScoped&lt;GraphService&gt;();</pre>
       current session. After every import or repair step a success banner shows the number of rows written to
       the database and disappears automatically after five seconds. CSV parsing uses the
       <a href="https://joshclose.github.io/CsvHelper/" target="_blank">CsvHelper</a> library with class maps
-      defined in <code>Classes/Classes.cs</code>. Transactions and Portfolio also accept native broker
-      <code>.xlsx</code> when no matching CSV is present.
+      defined in <code>Classes/Classes.cs</code>. Portfolio also accepts a native broker
+      <code>.xlsx</code> when no matching CSV is present. Transactions asks you to choose an Otto1890
+      transaction-summary PDF.
     </p>
 
     <h3>Recommended import order</h3>
@@ -1351,89 +1352,70 @@ builder.Services.AddScoped&lt;GraphService&gt;();</pre>
     <!-- ── TRANSACTIONS ── -->
     <h3>3 · Transactions — <code>ImportTransactions()</code> / <code>ImportTransactionsAsync()</code></h3>
     <p>
-      <strong>File:</strong> the broker's native <code>Transaction*.xlsx</code> in <code>DownloadsPath</code> is
-      <strong>preferred</strong>; if none is found, it falls back to <code>Transaction*.csv</code>.<br>
-      <strong>No class map</strong> — both formats are read field-by-field because the file contains preamble
-      rows above the real header.
-    </p>
-    <p class="note">
-      <strong>Why <code>.xlsx</code> first?</strong> The broker's dates are UK <code>dd/mm/yy</code> text. When Excel
-      saves that workbook as <code>.csv</code>, it silently reinterprets and rewrites the dates to ISO with the day
-      and year swapped (e.g. <code>10/02/16</code> &rarr; <code>2010-02-16</code>, <code>31/07/17</code> &rarr;
-      <code>2031-07-17</code>). Reading the native <code>.xlsx</code> avoids this corruption because the cells stay
-      as the original <code>dd/mm/yy</code> strings.
+      <strong>File:</strong> the user chooses an Otto1890 transaction-summary <code>.pdf</code> in the file dialog.
+      Nothing is read from <code>DownloadsPath</code>. Closing the dialog without a file imports nothing and
+      does not show the success banner.<br>
+      <strong>Reader:</strong> <a href="https://github.com/UglyToad/PdfPig" target="_blank">PdfPig</a>
+      (<code>ReadPdfRows</code>). There is no CSV class map.
     </p>
     <p>
-      <strong>Signature:</strong> <code>public async Task&lt;int&gt; ImportTransactionsAsync()</code> — the
-      async core that returns the number of rows actually saved. The UI wrapper
-      <code>ImportTransactions()</code> sets the busy flag <code>b3</code>, awaits this method, and passes the
-      result to <code>ShowMessage()</code>.
+      <strong>Signature:</strong> <code>public async Task&lt;int&gt; ImportTransactionsAsync()</code> — opens the
+      dialog, parses the chosen PDF, and returns the number of rows saved. Returns <code>-1</code> when no file
+      is chosen. The UI wrapper <code>ImportTransactions()</code> passes a non-negative result to
+      <code>ShowMessage()</code> and sets the busy flag <code>b3</code> only after a file is chosen.
     </p>
     <p><strong>Execution flow:</strong></p>
     <ol>
-      <li><strong>Config guard</strong> — if <code>AppConfig.DownloadsPath</code> is empty, returns <code>0</code>.</li>
-      <li><strong>Locate file</strong> — first file matching <code>Transaction*.xlsx</code>; if none, first
-          <code>Transaction*.csv</code>; if neither, returns <code>0</code>.</li>
-      <li><strong>Read rows</strong> — the matched file is parsed into a list of <code>TxRow</code> records
-          (one neutral shape for both formats):
+      <li><strong>Choose file</strong> — <code>State.ShowFileUpload</code> opens <code>DialogBox</code> with
+          <code>accept=".pdf"</code>. The bytes are copied while the browser file is still valid (limit 10&nbsp;MB).</li>
+      <li><strong>Read rows</strong> — <code>ReadPdfRows</code> groups words into lines by baseline, then:
           <ul>
-            <li><code>ReadXlsxRows()</code> — opens the <code>.xlsx</code> (a ZIP archive) with
-                <code>System.IO.Compression.ZipFile</code>, loads <code>xl/worksheets/sheet1.xml</code> with
-                <code>System.Xml.Linq.XDocument</code>, and reads each <code>&lt;row&gt;</code> cell by its column
-                letter (from the cell's <code>r</code> attribute). Both inline strings (<code>&lt;is&gt;&lt;t&gt;</code>)
-                and value cells (<code>&lt;v&gt;</code>) are handled. <em>No third-party library is needed</em> — only
-                in-framework types. Column mapping: <code>B</code>=Tran&nbsp;Code, <code>D</code>=Description,
-                <code>F</code>=Security, <code>H</code>=Trade&nbsp;Date, <code>L</code>=Quantity,
-                <code>N</code>=Local&nbsp;Currency, <code>Q</code>=Local&nbsp;Amount.</li>
-            <li><code>ReadCsvRows()</code> (fallback) — <code>StreamReader</code> + <code>CsvReader</code> using the
-                shared <code>CsvConfig()</code>, scanning rows until column index&nbsp;1 equals <code>"Tran Code"</code>,
-                then <code>ReadHeader()</code>. All preamble rows are ignored; if the header is never found, returns
-                an empty list.</li>
+            <li>A transaction line matches a 2-letter code, a body, a <code>dd/mm/yy</code> trade date, an optional
+                settle date, an optional quantity, a 3-letter currency, and an amount.</li>
+            <li>The body splits at the first all-caps token: title case is <code>Description</code>
+                (<code>Dividend</code>, <code>Deliver out long</code>), the rest is <code>Security</code>.</li>
+            <li>A following line that starts in the security column (60pt or more to the right of the
+                <code>Code</code> header) is appended to <code>Security</code> (<code>INC</code>, <code>ADR</code>, <code>SHS</code>).</li>
+            <li>Any other content line is that transaction’s <code>Note</code>.</li>
+            <li>Repeating headers, the “From … To …” line, the Sanlam footer, the account name, and a lone page number are skipped.</li>
           </ul>
       </li>
-      <li><strong>Save rows</strong> — both readers feed the shared <code>SaveTxRowsAsync()</code>:
+      <li><strong>Save rows</strong> — <code>SaveTxRowsAsync()</code>:
         <ol>
           <li><strong>Load dedup set</strong> — all existing <code>(TradeDate, LocalAmount)</code> pairs into a <code>HashSet</code>.</li>
-          <li><strong>Row loop</strong> — builds <code>Transaction</code> objects, skipping invalid/duplicate rows (see tables below).</li>
+          <li><strong>Row loop</strong> — builds <code>Transaction</code> objects, skipping invalid or duplicate rows.</li>
           <li><strong>Persist</strong> — <code>AddRange</code> + <code>SaveChangesAsync()</code>, returning the saved count.</li>
         </ol>
       </li>
     </ol>
     <div class="tbl-wrap">
       <table>
-        <thead><tr><th>Column <small>(xlsx&nbsp;letter / csv&nbsp;header)</small></th><th>Maps to</th><th>Processing</th></tr></thead>
+        <thead><tr><th>PDF field</th><th>Maps to</th><th>Processing</th></tr></thead>
         <tbody>
-          <tr><td><code>B</code> / <code>Tran Code</code></td><td><code>Transaction.TranCode</code></td><td>Rows with a blank code or a code longer than 4 characters are skipped (footer/summary lines).</td></tr>
-          <tr><td><code>H</code> / <code>Trade Date</code></td><td><code>Transaction.TradeDate</code></td><td><code>DateRegex()</code> normalises <code>D/M/YY</code> and <code>D/M/YYYY</code> to <code>YYYY-MM-DD</code> before <code>DateOnly.TryParse</code>. Rows with unparseable dates are skipped.</td></tr>
-          <tr><td><code>L</code> / <code>Quantity</code></td><td><code>Transaction.Quantity</code></td><td>Spaces (thousands separators) and trailing periods are stripped. Decimal values are rounded to <code>int</code>.</td></tr>
-          <tr><td><code>N</code> / <code>Local Currency</code></td><td><code>Transaction.Currency</code></td><td>Stored as-is, e.g. <code>USD</code>.</td></tr>
-          <tr><td><code>Q</code> / <code>Local Amount</code></td><td><code>Transaction.LocalAmount</code></td><td>Spaces stripped; parsed with <code>NumberStyles.Any</code> and <code>InvariantCulture</code>.</td></tr>
-          <tr><td><code>D</code> / <code>Description</code></td><td><code>Transaction.Description</code></td><td>Plain text, stored verbatim.</td></tr>
-          <tr><td><code>F</code> / <code>Security</code></td><td><code>Transaction.Security</code></td><td>Security <em>name</em> string — the FK to <code>SecurityID</code> is <strong>not</strong> set here; that link is created by <strong>ImportSecurities</strong>.</td></tr>
+          <tr><td>2-letter code (<code>dv</code>, <code>dp</code>, <code>wd</code>, <code>lo</code>, <code>sl</code>, <code>in</code>)</td><td><code>Transaction.TranCode</code></td><td>Stored as read.</td></tr>
+          <tr><td>Title-case words</td><td><code>Transaction.Description</code></td><td>Stored verbatim, for example <code>Sell long</code>.</td></tr>
+          <tr><td>All-caps name, plus a security-column wrap</td><td><code>Transaction.Security</code></td><td>Name string only. <code>SecurityID</code> is set later by <strong>ImportSecurities</strong> or <strong>Link Trans</strong>.</td></tr>
+          <tr><td>Trade date <code>dd/mm/yy</code></td><td><code>Transaction.TradeDate</code></td><td><code>DateRegex()</code> normalises <code>D/M/YY</code> to <code>YYYY-MM-DD</code> before <code>DateOnly.TryParse</code>. The settle date is ignored.</td></tr>
+          <tr><td>Quantity, when present</td><td><code>Transaction.Quantity</code></td><td>Spaces and a trailing period are stripped. Decimal values are rounded to <code>int</code>.</td></tr>
+          <tr><td>Currency</td><td><code>Transaction.Currency</code></td><td>Stored as-is, for example <code>USD</code>.</td></tr>
+          <tr><td>Local amount</td><td><code>Transaction.LocalAmount</code></td><td>Spaces stripped; parsed with <code>NumberStyles.Any</code> and <code>InvariantCulture</code>.</td></tr>
+          <tr><td>Narrative line under the code</td><td><code>Transaction.Note</code></td><td>Stored as read. The column is <code>nvarchar(50)</code>.</td></tr>
         </tbody>
       </table>
     </div>
-    <p><strong>Row-skip conditions</strong> (a row is silently skipped if any apply):</p>
+    <p><strong>Row-skip conditions</strong> (a parsed row is not inserted if any apply):</p>
     <ul>
-      <li><code>Tran Code</code> is blank, or longer than 4 characters (footer/summary lines).</li>
       <li><code>Trade Date</code> is blank, or cannot be parsed after normalisation.</li>
       <li>The <code>(TradeDate, LocalAmount)</code> pair already exists (deduplication).</li>
     </ul>
     <p>
       <strong>Deduplication:</strong> all existing <code>(TradeDate, LocalAmount)</code> pairs are loaded
       into a <code>HashSet</code> before the loop. A new row is only inserted when that exact pair is not
-      already present. This prevents double-imports when the same transaction file is processed twice, while
+      already present. This prevents double-imports when the same statement is processed twice, while
       still allowing two legitimate transactions on the same date if their amounts differ.
     </p>
-    <p>
-      <strong>Detail rows (<code>lo</code> + <code>CASH</code> rule):</strong> rows whose code is longer than 4
-      characters are normally skipped as footer/detail text. However, when the <em>previous</em> kept transaction
-      had code <code>lo</code> and a <code>Security</code> starting with <code>CASH</code>, the following detail
-      row's text replaces that transaction's <code>Security</code> — giving the cash movement a meaningful name
-      instead of the generic <code>CASH</code> placeholder.
-    </p>
     <p class="note">
-      Note: <code>DateRegex</code> is applied twice (<code>DateRegex(DateRegex(rawDate))</code>) on the raw
+      <code>DateRegex</code> is applied twice (<code>DateRegex(DateRegex(rawDate))</code>) on the raw
       date string before parsing.
     </p>
 

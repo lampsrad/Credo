@@ -1,12 +1,10 @@
-﻿using Microsoft.AspNetCore.Components.Forms;
-
-namespace Credo;
+﻿namespace Credo;
 
 public class State
 {
     public event Action<bool>? Progress;
     public event Func<Task<string>>? FileNameGet;
-    public event Func<string, string, string, Task<IBrowserFile?>>? FileUpload;
+    public event Func<string, string, string, Task<byte[]?>>? FileUpload;
     public event Func<string, string, string, Task<string>>? MessageShow;
 
     public double ProgressVal { get; set; }
@@ -23,10 +21,10 @@ public class State
         var file = await FileNameGet.Invoke();
         return file;
     }
-    public async Task<IBrowserFile?> ShowFileUpload(string title, string message, string destination)
+    public async Task<byte[]?> ShowFileUpload(string title, string message, string accept)
     {
         if (FileUpload is null) return null;
-        return await FileUpload.Invoke(title, message, destination);
+        return await FileUpload.Invoke(title, message, accept);
     }
     public async Task<string?> ShowMessage(string title, string message, string button)
     {
