@@ -15,4 +15,5 @@ public class Transaction
     public int? Quantity { get; set; }
     public string? Currency { get; set; }
     public decimal? LocalAmount { get; set; }
+    public string? Note { get; set; }
 }
