@@ -443,7 +443,8 @@
 ├── Models/             EF Core entities + CredoDbContext
 ├── Services/           UpdateService, GraphService, Internet
 ├── Classes/            CSV class maps + custom type converters
-├── wwwroot/            Static assets (CSS, JS, Chart.js, help.html)
+├── StaticPages/        help.html, served at /help.html
+├── wwwroot/            Static assets (CSS, JS, Chart.js)
 ├── Program.cs          App startup, DI registration, /help.html route
 ├── AppConfig.cs        Machine-aware paths + browser lifecycle (singleton)
 ├── State.cs            Scoped UI event bus (progress, dialogs, file picker)
@@ -467,6 +468,7 @@
           <tr><td><code>Microsoft.EntityFrameworkCore.SqlServer</code></td><td>10.0.x</td><td>SQL Server EF Core provider</td></tr>
           <tr><td><code>Microsoft.Data.SqlClient</code></td><td>—</td><td>Parameterised SQL for backup / restore</td></tr>
           <tr><td><code>CsvHelper</code></td><td>33.x</td><td>CSV reading with class maps &amp; converters</td></tr>
+          <tr><td><code>PdfPig</code></td><td>0.1.16</td><td>Transaction-summary PDF text and word positions</td></tr>
           <tr><td><code>YahooQuotesApi</code></td><td>7.x</td><td>Snapshots, daily history, FX rates</td></tr>
           <tr><td><code>NodaTime</code></td><td>—</td><td><code>Instant</code> used for Yahoo history start date</td></tr>
           <tr><td><code>Chart.js</code></td><td>CDN</td><td>Canvas-based charting</td></tr>
@@ -492,7 +494,7 @@
           <tr><td><code>/expenses</code></td><td>Expenses.razor</td><td>Expense tracking</td></tr>
           <tr><td><code>/import</code></td><td>ImportView.razor</td><td>Broker file import for Tickers, Currencies, Securities, Portfolio (CSV / xlsx) and Transactions (PDF you choose); Link Trans repair</td></tr>
           <tr><td><code>/backup/{action}</code></td><td>Backup.razor</td><td>Backup &amp; Restore (action = "Backup" | "Restore")</td></tr>
-          <tr><td><code>/help.html</code></td><td>wwwroot/help.html</td><td>This developer reference (served by a custom <code>MapGet</code> in Program.cs)</td></tr>
+          <tr><td><code>/help.html</code></td><td>StaticPages/help.html</td><td>This developer reference (served by a custom <code>MapGet</code> in Program.cs)</td></tr>
         </tbody>
       </table>
     </div>
@@ -515,7 +517,7 @@
       </div>
       <div class="card">
         <h4>&#128228; Import</h4>
-        <p>Import broker data: Tickers, Currencies, Transactions, Securities, Portfolio — plus Link Trans repair.</p>
+        <p>Import broker data: Tickers, Currencies, Securities, and Portfolio from Downloads, Transactions from a PDF you choose, plus Link Trans repair.</p>
         <div class="route">/import</div>
       </div>
       <div class="card">
@@ -591,6 +593,8 @@
           <tr><td><code>dv</code></td><td>Dividend</td><td>Inflow (positive)</td></tr>
           <tr><td><code>in</code></td><td>Interest</td><td>Inflow (positive)</td></tr>
           <tr><td><code>cv</code></td><td>Conversion (synthetic close-out)</td><td>Inflow (positive) — represents current market value of remaining shares</td></tr>
+          <tr><td><code>dp</code></td><td>Deposit (Otto1890 statement)</td><td>Skipped. <code>CalculateXirr</code> only models the codes above.</td></tr>
+          <tr><td><code>wd</code></td><td>Withdraw (Otto1890 statement)</td><td>Skipped. <code>CalculateXirr</code> only models the codes above.</td></tr>
         </tbody>
       </table>
     </div>
@@ -1169,7 +1173,7 @@ await scope.SaveChangesAsync();</pre>
         <p>Chart.js line chart in a Bootstrap-style overlay. Toggles for 50-DMA, 200-DMA, and price-vs-percentage view, all driven by JS interop into <code>renderSecurityChart</code> / <code>toggleMA50</code> / <code>toggleMA200</code> / <code>toggleSecurityChartPct</code>.</p>
       </div>
       <div class="card"><h4>DialogBox.razor</h4>
-        <p>Generic modal subscribed to <code>State.MessageShow</code>.</p>
+        <p>Modal subscribed to <code>State.MessageShow</code>, <code>State.Progress</code>, and <code>State.FileUpload</code>. The file chooser copies the selected file into a byte array before the Blazor event returns (10&nbsp;MB limit). Closing the dialog completes the upload task with null.</p>
       </div>
       <div class="card"><h4>TransViewMod.razor</h4>
         <p>Transaction view modifier — filter/display toggle for the transaction list.</p>
@@ -1197,7 +1201,7 @@ await scope.SaveChangesAsync();</pre>
           <tr><td><code>wwwroot/css/Credo.styles.css</code></td><td>Auto-generated scoped CSS.</td></tr>
           <tr><td><code>wwwroot/Script/Javascript.js</code></td><td>Chart.js setup, MA toggles, context-menu helpers, viewport width.</td></tr>
           <tr><td><code>wwwroot/lib/</code></td><td>Bootstrap bundle.</td></tr>
-          <tr><td><code>wwwroot/help.html</code></td><td>This reference. Served by a dedicated <code>app.MapGet("/help.html", …)</code> in <code>Program.cs</code> that forces UTF-8.</td></tr>
+          <tr><td><code>StaticPages/help.html</code></td><td>This reference. <code>Program.cs</code> reads it from the content root and serves <code>/help.html</code> as UTF-8. The project copies <code>StaticPages\**\*</code> to the output directory.</td></tr>
         </tbody>
       </table>
     </div>
@@ -1275,14 +1279,16 @@ builder.Services.AddScoped&lt;GraphService&gt;();</pre>
 
     <p>
       All imports are triggered from <code>/import</code> (<code>ImportView.razor</code>). Five buttons import
-      broker files; a sixth — <strong>Link Trans</strong> — repairs transaction foreign keys without reading any
-      file. Each button turns red after it is clicked so you can see at a glance what has already run in the
-      current session. After every import or repair step a success banner shows the number of rows written to
-      the database and disappears automatically after five seconds. CSV parsing uses the
+      broker data; a sixth — <strong>Link Trans</strong> — repairs transaction foreign keys without reading any
+      file. Tickers, Currencies, Securities, Portfolio, and Link Trans turn red as soon as they are clicked.
+      Transactions turns red only after a PDF is chosen. A success banner shows the number of rows written
+      and disappears after five seconds. Closing the transaction dialog without a file writes nothing and
+      shows no banner. A failed Transactions or Portfolio import adds the exception message to the red
+      error list on the page. CSV parsing uses the
       <a href="https://joshclose.github.io/CsvHelper/" target="_blank">CsvHelper</a> library with class maps
       defined in <code>Classes/Classes.cs</code>. Portfolio also accepts a native broker
       <code>.xlsx</code> when no matching CSV is present. Transactions asks you to choose an Otto1890
-      transaction-summary PDF.
+      transaction-summary PDF and reads it with PdfPig.
     </p>
 
     <h3>Recommended import order</h3>
@@ -1356,7 +1362,7 @@ builder.Services.AddScoped&lt;GraphService&gt;();</pre>
       Nothing is read from <code>DownloadsPath</code>. Closing the dialog without a file imports nothing and
       does not show the success banner.<br>
       <strong>Reader:</strong> <a href="https://github.com/UglyToad/PdfPig" target="_blank">PdfPig</a>
-      (<code>ReadPdfRows</code>). There is no CSV class map.
+      (<code>ReadPdfRows</code>). <code>TransactionMap</code> in <code>Classes/Classes.cs</code> is not registered by this import.
     </p>
     <p>
       <strong>Signature:</strong> <code>public async Task&lt;int&gt; ImportTransactionsAsync()</code> — opens the
@@ -1399,12 +1405,13 @@ builder.Services.AddScoped&lt;GraphService&gt;();</pre>
           <tr><td>Quantity, when present</td><td><code>Transaction.Quantity</code></td><td>Spaces and a trailing period are stripped. Decimal values are rounded to <code>int</code>.</td></tr>
           <tr><td>Currency</td><td><code>Transaction.Currency</code></td><td>Stored as-is, for example <code>USD</code>.</td></tr>
           <tr><td>Local amount</td><td><code>Transaction.LocalAmount</code></td><td>Spaces stripped; parsed with <code>NumberStyles.Any</code> and <code>InvariantCulture</code>.</td></tr>
-          <tr><td>Narrative line under the code</td><td><code>Transaction.Note</code></td><td>Stored as read. The column is <code>nvarchar(50)</code>.</td></tr>
+          <tr><td>Narrative line under the code</td><td><code>Transaction.Note</code></td><td>Stored as read. The column is <code>nvarchar(50)</code>. <code>TransactionsView</code> does not display it.</td></tr>
         </tbody>
       </table>
     </div>
     <p><strong>Row-skip conditions</strong> (a parsed row is not inserted if any apply):</p>
     <ul>
+      <li><code>TranCode</code> is blank.</li>
       <li><code>Trade Date</code> is blank, or cannot be parsed after normalisation.</li>
       <li>The <code>(TradeDate, LocalAmount)</code> pair already exists (deduplication).</li>
     </ul>
@@ -1423,8 +1430,8 @@ builder.Services.AddScoped&lt;GraphService&gt;();</pre>
     <h3>4 · Securities — <code>ImportSecurities()</code></h3>
 
     <p>
-      <strong>No file required.</strong> Unlike every other import button, <code>ImportSecurities</code>
-      reads no CSV and needs no file in the Downloads folder. Instead it acts as a <em>data-linking
+      <strong>No file required.</strong> <code>ImportSecurities</code>
+      reads no CSV and needs no file in the Downloads folder. It acts as a <em>data-linking
       step</em>: it creates <code>Security</code> rows by projecting the <code>Ticker</code> table that
       was populated in Step&nbsp;1, and it then repairs the foreign-key gap left by Step&nbsp;3 by
       setting <code>Transaction.SecurityID</code> on every transaction whose <code>Security</code>
@@ -1765,8 +1772,8 @@ var transByName = await scope.GetEntitiesAsync&lt;Transaction&gt;(
     <h3>Shared infrastructure</h3>
 
     <h4>CsvConfiguration (<code>CsvConfig()</code>)</h4>
-    <p>Tickers, Currencies, Transactions (CSV fallback), and Portfolio (CSV path) reuse the same
-      <code>CsvConfiguration</code>:</p>
+    <p>Tickers, Currencies, and the Portfolio CSV path reuse the same
+      <code>CsvConfiguration</code>. The transaction PDF reader does not:</p>
     <ul>
       <li>Header record expected (<code>HasHeaderRecord = true</code>).</li>
       <li>Comma delimiter, <code>InvariantCulture</code>.</li>
