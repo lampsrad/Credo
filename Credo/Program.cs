@@ -33,6 +33,12 @@ app.MapGet("/help.html", async (IWebHostEnvironment env) =>
     var html = await File.ReadAllTextAsync(path, System.Text.Encoding.UTF8);
     return Results.Content(html, "text/html; charset=utf-8");
 });
+app.MapGet("/developer.html", async (IWebHostEnvironment env) =>
+{
+    var path = Path.Combine(env.ContentRootPath, "StaticPages", "developer.html");
+    var html = await File.ReadAllTextAsync(path, System.Text.Encoding.UTF8);
+    return Results.Content(html, "text/html; charset=utf-8");
+});
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 app.Lifetime.ApplicationStopping.Register(() => appConfig.StopBrowser());

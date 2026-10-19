@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Credo – Code flows</title>
+  <style>
+    :root {
+      --bg: #101114;
+      --surface: #1a1d1f;
+      --surface2: #24282c;
+      --border: #3d4a38;
+      --gold: #bf9f00;
+      --text: #f3efe4;
+      --muted: #b7b1a4;
+      --link: #8fce6a;
+      --code: #d7e8c8;
+      --warn: #e0b15a;
+      --radius: 8px;
+      --font: "Segoe UI", system-ui, sans-serif;
+      --mono: Consolas, "Cascadia Mono", monospace;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      font-size: 16px;
+      line-height: 1.6;
+    }
+    main { max-width: 980px; margin: 0 auto; padding: 36px 28px 88px; }
+    h1 { font-size: 2rem; margin: 0 0 8px; letter-spacing: -0.4px; }
+    .lede { color: var(--muted); margin: 0 0 24px; }
+    h2 {
+      font-size: 1.35rem;
+      margin: 40px 0 12px;
+      padding-bottom: 6px;
+      border-bottom: 2px solid var(--gold);
+      scroll-margin-top: 16px;
+    }
+    h3 { font-size: 1.05rem; margin: 22px 0 8px; color: var(--link); }
+    p { margin: 0 0 12px; }
+    a { color: var(--link); }
+    ol, ul { margin: 8px 0 14px; padding-left: 1.3rem; }
+    li { margin-bottom: 6px; }
+    code, .path {
+      font-family: var(--mono);
+      font-size: 0.88em;
+      color: var(--code);
+      background: var(--surface2);
+      border: 1px solid #3a403c;
+      border-radius: 4px;
+      padding: 0 5px;
+    }
+    pre {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 12px 14px;
+      overflow-x: auto;
+      font-family: var(--mono);
+      font-size: 0.86rem;
+      line-height: 1.45;
+      color: var(--code);
+    }
+    nav.toc {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px 18px 8px;
+      margin-bottom: 28px;
+    }
+    nav.toc strong {
+      display: block;
+      font-size: 0.75rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+    nav.toc ul {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 2px 16px;
+    }
+    nav.toc a { text-decoration: none; }
+    nav.toc a:hover { text-decoration: underline; }
+    table { width: 100%; border-collapse: collapse; margin: 8px 0 16px; font-size: 0.94rem; }
+    th, td { text-align: left; vertical-align: top; padding: 8px 10px; border-bottom: 1px solid #2c3330; }
+    th { color: var(--gold); font-weight: 600; background: var(--surface); }
+    tr:hover td { background: var(--surface2); }
+    .note, .warn {
+      border-radius: var(--radius);
+      padding: 12px 14px;
+      margin: 12px 0 16px;
+    }
+    .note { background: #1c2820; border: 1px solid var(--border); }
+    .warn { background: #2a2418; border: 1px solid #8a5a20; }
+    .warn strong { color: var(--warn); }
+  </style>
+</head>
+<body>
+<main>
+  <h1>Credo code flows</h1>
+  <p class="lede">
+    How the running program moves from a click to SQL Server and Yahoo Finance.
+    Paths are under the <code>Credo</code> project. This page is served at <code>/developer.html</code>
+    from <code>StaticPages/developer.html</code> by the <code>MapGet</code> in <code>Program.cs</code>.
+  </p>
+
+  <nav class="toc">
+    <strong>Flows</strong>
+    <ul>
+      <li><a href="#startup">Startup and shell</a></li>
+      <li><a href="#config">Config and database</a></li>
+      <li><a href="#data">Reads and writes</a></li>
+      <li><a href="#model">How the rows connect</a></li>
+      <li><a href="#dialog">Dialog bus</a></li>
+      <li><a href="#import">Import</a></li>
+      <li><a href="#update">Price updates</a></li>
+      <li><a href="#portfolio">Portfolio screen</a></li>
+      <li><a href="#securities">Securities screen</a></li>
+      <li><a href="#other">Other screens</a></li>
+      <li><a href="#backup">Backup and restore</a></li>
+      <li><a href="#charts">Charts</a></li>
+      <li><a href="#xirr">XIRR</a></li>
+      <li><a href="#traps">Where flows disagree</a></li>
+      <li><a href="#dead">No caller</a></li>
+    </ul>
+  </nav>
+
+  <section id="startup">
+    <h2>Startup and shell</h2>
+    <p><code>Program.cs</code> builds a Blazor interactive-server app and then runs a one-off SQL statement before <code>app.Run()</code>.</p>
+    <ol>
+      <li>Register Razor components with interactive server rendering.</li>
+      <li>Singleton: <code>AppConfig</code>, <code>IDbContextFactory</code> / <code>DbContextFactory</code>.</li>
+      <li>Scoped to the circuit: <code>Repo</code>, <code>State</code>, <code>UpdateService</code>, <code>GraphService</code>.</li>
+      <li>Outside Development: exception handler, HSTS, and <code>AppConfig.StartBrowser</code> with the Kestrel URL from <code>appsettings.json</code> (<code>http://localhost:5123</code>). Development does not open that browser. <code>launchSettings.json</code> launches <code>http://localhost:5183</code> itself.</li>
+      <li>Pipeline: status-code re-execute to <code>/not-found</code>, HTTPS redirection, antiforgery, static files, static assets.</li>
+      <li><code>MapGet("/help.html")</code> and <code>MapGet("/developer.html")</code> read the matching file from the content root <code>StaticPages</code> folder and return <code>text/html; charset=utf-8</code>. They are not files under <code>wwwroot</code>. <code>Credo.csproj</code> also copies <code>StaticPages\**\*</code> to the build output.</li>
+      <li><code>MapRazorComponents&lt;App&gt;().AddInteractiveServerRenderMode()</code>.</li>
+      <li>On application stopping, <code>AppConfig.StopBrowser</code> closes the process started in step 4.</li>
+      <li>Open one scope, create a <code>CredoDbContext</code>, and run raw SQL that creates <code>WatchlistItems</code> when <code>sysobjects</code> has no such user table. There is no EF migration for any table.</li>
+    </ol>
+    <p>The document shell is <code>Components/App.razor</code>. It loads Bootstrap, <code>app.css</code>, scoped CSS, Blazor, <code>Script/Javascript.js</code> (the file on disk is <code>wwwroot/Script/JavaScript.js</code>; Windows matches it), and Chart.js 4 from a CDN. <code>Routes</code> and <code>HeadOutlet</code> use interactive server mode.</p>
+    <p><code>Components/Layout/MainLayout.razor</code> renders <code>Menu</code>, then the page body, then <code>DialogBox</code>. Every page therefore shares the menu and the dialog. <code>Menu.razor</code> sets <code>@rendermode InteractiveServer</code> on itself as well.</p>
+    <pre>browser click
+  → Blazor circuit (interactive server)
+    → page handler in Pages/*.razor.cs
+      → Repo read, or RepoScope write
+      → State events, when a dialog or progress bar is needed
+      → IJSRuntime, when a chart, context menu, or focus call is needed</pre>
+    <p><strong>Close</strong> in <code>Menu.razor.cs</code> calls <code>AppConfig.StopBrowser</code> and <code>IHostApplicationLifetime.StopApplication</code>.</p>
+    <table>
+      <thead><tr><th>Route</th><th>Page</th></tr></thead>
+      <tbody>
+        <tr><td><code>/</code> and <code>/portfolio</code></td><td><code>PortfolioView</code></td></tr>
+        <tr><td><code>/securities</code></td><td><code>SecuritiesView</code></td></tr>
+        <tr><td><code>/transactions</code> and <code>/transactions/{Data}</code></td><td><code>TransactionsView</code>. <code>Data</code> is matched to <code>TranCode</code> and the title becomes <code>FEES</code>. The menu only links to <code>/transactions</code>.</td></tr>
+        <tr><td><code>/tickers</code></td><td><code>TickerView</code></td></tr>
+        <tr><td><code>/expenses</code></td><td><code>Expenses</code></td></tr>
+        <tr><td><code>/watchlist</code></td><td><code>WatchlistView</code></td></tr>
+        <tr><td><code>/import</code></td><td><code>ImportView</code></td></tr>
+        <tr><td><code>/backup/{Data}</code></td><td><code>Backup</code>. Menu links are <code>backup/Backup</code> and <code>backup/Restore</code>.</td></tr>
+        <tr><td><code>/home</code></td><td><code>Components/Pages/Home.razor</code>. Renders the word Updating. No menu link.</td></tr>
+        <tr><td><code>/Error</code></td><td>Production exception page.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="config">
+    <h2>Config and database</h2>
+    <p><code>AppConfig</code> reads configuration once in its constructor.</p>
+    <ul>
+      <li><code>MachineName</code> is <code>Environment.MachineName</code>.</li>
+      <li><code>SqlInstance</code> is <code>SQL16</code> when the machine is <code>ROG</code>, otherwise <code>SQL</code>.</li>
+      <li><code>DbName</code> stays <code>Credo</code>. <code>ConnectionKey</code> starts as <code>XPS</code>.</li>
+      <li><code>BackupPath</code> and <code>DownloadsPath</code> come from <code>Paths:Backup</code> and <code>Paths:Downloads</code>, with environment variables expanded. Downloads is <code>%USERPROFILE%\Downloads\Credo\</code>.</li>
+      <li><code>BrowserPath</code> is <code>Paths:BrowserROG</code> or <code>Paths:BrowserXPS</code>.</li>
+    </ul>
+    <p><code>DbContextFactory.CreateDbContext</code> picks the first non-empty connection string among <code>ConnectionKey</code> (<code>XPS</code>), the machine name, and <code>Local</code>. It replaces <code>[ServerName]</code> with <code>{MachineName}\{SqlInstance}</code> and <code>[DatabaseName]</code> with <code>DbName</code>. Development turns on sensitive data logging. A missing string throws and names the user-secrets command.</p>
+    <p><code>CredoDbContext</code> has one <code>DbSet</code> per entity and no <code>OnModelCreating</code>. Relationships are convention from the foreign-key properties: <code>Transaction.SecurityID</code>, <code>Security.TickerID</code>, <code>Security.CurrencyID</code>, <code>Portfolio.SecurityID</code>, <code>Portfolio.CurrencyID</code>. The watchlist set is named <code>WatchlistItems</code>, which is also the table the startup SQL creates.</p>
+  </section>
+
+  <section id="data">
+    <h2>Reads and writes</h2>
+    <p><code>Repo</code> is the read side and the scope factory. Each <code>GetEntityNTAsync</code> / <code>GetEntitiesNTAsync</code> / <code>AnyEntityAsync</code> opens a context, runs, and disposes it. Those reads use <code>AsNoTracking</code>. A write that must see its own changes uses <code>BeginScope</code>.</p>
+    <pre>await using var scope = repo.BeginScope();
+var rows = await scope.GetEntitiesAsync&lt;Security&gt;();
+scope.Add(entity);          // or AddRange / RemoveRange
+await scope.SaveChangesAsync();</pre>
+    <p><code>RepoScope</code> holds one context until dispose. Its gets are tracked. <code>RepoQuery.BuildQuery</code> adds the same includes and default order for both read and write queries:</p>
+    <table>
+      <thead><tr><th>Type</th><th>Includes and order</th></tr></thead>
+      <tbody>
+        <tr><td><code>Portfolio</code></td><td><code>security.Transactions</code>, <code>security.ticker</code>, <code>currency</code>. Ordered by ticker name.</td></tr>
+        <tr><td><code>Security</code></td><td><code>ticker</code>, <code>currency</code>, <code>Transactions</code>. Ordered by ticker name.</td></tr>
+        <tr><td><code>Transaction</code></td><td>No include. Ordered by trade date.</td></tr>
+        <tr><td><code>Ticker</code>, <code>Currency</code></td><td>Ordered by name.</td></tr>
+        <tr><td><code>History</code></td><td>Ordered by date.</td></tr>
+        <tr><td><code>Watchlist</code></td><td>Ordered by symbol.</td></tr>
+      </tbody>
+    </table>
+    <p>A caller that passes <code>sort</code> adds another <code>OrderBy</code> after that default. <code>GetEntityNTAsync</code> without a filter calls <code>SingleOrDefaultAsync</code>, so an unfiltered single-entity read throws when the table has more than one row.</p>
+    <p>History identity in code is the pair <code>(Symbol, Date)</code>. The database has no unique constraint on that pair. Writers keep a <code>HashSet</code> and skip a key they have already seen.</p>
+  </section>
+
+  <section id="model">
+    <h2>How the rows connect</h2>
+    <table>
+      <thead><tr><th>Entity</th><th>Role in a flow</th></tr></thead>
+      <tbody>
+        <tr><td><code>Ticker</code></td><td>Yahoo symbol, display name, and a currency string. Import and history jobs iterate these symbols. <code>USDUSD=X</code> is skipped by the live price update.</td></tr>
+        <tr><td><code>Currency</code></td><td><code>Symbol</code> is what Yahoo is asked for. <code>Name</code> is what tickers, expenses, and new portfolio rows match on. <code>Rate</code> is USD per 1 unit of that currency after an update. Expenses multiply a local amount by <code>Rate</code>.</td></tr>
+        <tr><td><code>Security</code></td><td>One row per ticker that <strong>Securities</strong> import created. <code>SecurityName</code> is copied from the ticker name and is the string transactions and portfolio rows match. Live update overwrites <code>Price</code>, <code>PrevClose</code>, <code>Currency</code> (from <code>snapshot.Currency.Name</code>), exchange, change, dividend yield, EPS, PE, forward PE, and market cap. A snapshot miss sets <code>Price = 1</code> and leaves the other quote fields.</td></tr>
+        <tr><td><code>Transaction</code></td><td>One statement line. <code>Security</code> is the name text. <code>SecurityID</code> is the link, filled later. <code>Note</code> is stored by the PDF import and read by no page. Codes are stored as the PDF wrote them; the parser only accepts two lowercase letters.</td></tr>
+        <tr><td><code>Portfolio</code></td><td>One holding. <code>Security_Description</code> is the match key for the holdings PDF. Quantity and market value are replaced from that PDF. <code>Unit_Cost</code> and <code>Cost</code> are written for new rows and left alone by later recalculation. <code>Price</code>, <code>Market_Value</code>, <code>Gain</code>, <code>GainPerc</code>, <code>Pct</code>, and <code>IRR</code> are rewritten by <code>UpdatePortfolioAsync</code>. <code>Market_Value_Yesterday</code> is not mapped: for currency <code>USD=X</code> it is previous close (or price) times quantity; otherwise it is <code>security.PrevClose</code> times quantity times the current <code>currency.Rate</code>.</td></tr>
+        <tr><td><code>History</code></td><td>Daily close by symbol. Symbol <code>Portfolio</code> is the portfolio total for a day. Symbol <code>^GSPC</code> is the S&amp;P 500 series used as the chart benchmark and the securities-page comparison.</td></tr>
+        <tr><td><code>Watchlist</code></td><td>Symbol and name only. Prices on that screen are live and are not written onto the watchlist row. History for the symbol is stored in <code>History</code>.</td></tr>
+      </tbody>
+    </table>
+    <p>Two currency strings sit side by side. Transaction and expense rows use ISO-style codes such as <code>GBP</code>. After a Yahoo update, <code>Security.Currency</code> and <code>Portfolio.Currency</code> hold <code>snapshot.Currency.Name</code>, and the portfolio math treats the value <code>USD=X</code> as “already in dollars”. Cash holdings with an empty security currency are classified by description prefix in <code>UpdateService.Cash</code>: Australian dollar, pound sterling, euro, or US dollar become <code>AUD=X</code>, <code>GBP=X</code>, <code>EUR=X</code>, or <code>USD=X</code>.</p>
+  </section>
+
+  <section id="dialog">
+    <h2>Dialog bus</h2>
+    <p><code>State</code> is a scoped event hub. <code>DialogBox</code> subscribes in <code>OnInitialized</code> and unsubscribes on dispose. Because both are created for the same circuit, a page can ask for UI without a component reference.</p>
+    <table>
+      <thead><tr><th>State method</th><th>Dialog behaviour</th></tr></thead>
+      <tbody>
+        <tr><td><code>ShowFileUpload(title, message, accept)</code></td><td>Shows the file picker. <code>InputFile</code> copies the stream into a <code>byte[]</code> before the Blazor event returns, capped at 10 MB. The task completes with those bytes, or with null when the close button runs. Dispose also completes a pending upload with null.</td></tr>
+        <tr><td><code>ShowProgress</code> / <code>UpdateProgress</code> / <code>Hide</code></td><td>Shows the same dialog as a progress bar. <code>UpdateProgress</code> clamps the value to 0–100 and can replace the title.</td></tr>
+        <tr><td><code>ShowMessage(title, message, button)</code></td><td><code>button == "Ok"</code> shows Ok. <code>button == "YesNo"</code> shows Yes and No. Yes and No complete the task with those strings. Ok calls <code>Cancel</code>, which closes the dialog and completes a pending file task, and does not complete the message task.</td></tr>
+        <tr><td><code>ShowFilePicker</code></td><td>Invokes <code>FileNameGet</code>. <code>DialogBox</code> never subscribes that event.</td></tr>
+      </tbody>
+    </table>
+    <div class="warn">
+      <strong>Update Failed waits on Ok.</strong>
+      <code>UpdateService.UpdateSecuritiesAsync</code> catches a Yahoo or save failure, hides progress, then <code>await state.ShowMessage(..., "Ok")</code>. The Ok button does not finish that task, so the update method stays on the await and its <code>finally</code> does not run. <code>PortfolioView.RefreshAsync</code> is awaiting the same call, so the refresh button stays on “Refreshing…” for that circuit.
+    </div>
+  </section>
+
+  <section id="import">
+    <h2>Import</h2>
+    <p>All six buttons live in <code>ImportView.razor.cs</code>. A success path sets <code>Results.Records</code>, shows “Imported: N records” for five seconds, then clears the result. The button flags <code>b1</code>–<code>b6</code> turn the button red and are never cleared. Transactions and Portfolio set their flag only after a file is accepted. A thrown exception is logged and added to <code>Results.Errors</code>. Closing a PDF dialog returns <code>-1</code> and the caller shows nothing.</p>
+
+    <h3>Tickers</h3>
+    <ol>
+      <li>Require <code>DownloadsPath</code>. Take the first file matching <code>Ticker*.csv</code>. Either miss shows Imported: 0.</li>
+      <li>CsvHelper with invariant culture, comma, trim, blank lines ignored, bad and missing fields ignored. <code>TickerMap</code> reads columns <code>ticker</code>, <code>securityname</code>, <code>currency</code> into <code>Symbol</code>, <code>Name</code>, <code>Currency</code>.</li>
+      <li>Insert rows whose <code>Symbol</code> is not already in <code>Tickers</code>. Existing symbols are left as they are.</li>
+    </ol>
+
+    <h3>Currencies</h3>
+    <ol>
+      <li>First <code>Currencies*.csv</code> in the same folder.</li>
+      <li><code>CurrencyMap</code> reads <code>currency</code> into <code>Name</code> and <code>symbol</code> into <code>Symbol</code>. <code>Rate</code> is not mapped.</li>
+      <li>Match an existing row on <code>Symbol</code>. A match copies <code>Symbol</code> and <code>Name</code> and leaves <code>Rate</code>. A new row with <code>Name == "USD"</code> gets <code>Rate = 1</code>; any other new row keeps the default 0 until Update All fills it from Yahoo.</li>
+    </ol>
+
+    <h3>Securities</h3>
+    <p>No file. Load every ticker and a dictionary of <code>Currency.Name</code> → id. For each ticker whose id is not already a <code>Security.TickerID</code>, add a security named from the ticker, with <code>CurrencyID</code> when <code>Ticker.Currency</code> equals a currency name. Save. Then, for those new names only, set <code>Transaction.SecurityID</code> where <code>Transaction.Security</code> equals <code>SecurityName</code>.</p>
+
+    <h3>Transactions PDF</h3>
+    <ol>
+      <li><code>ShowFileUpload("Import transactions", ..., ".pdf")</code>.</li>
+      <li><code>ReadPdfRows</code> opens the bytes with PdfPig. Words on a page are grouped into lines when their bottoms are within 3 points, then sorted left to right.</li>
+      <li>A line whose first word is <code>Code</code> records that word’s left edge. Lines that are empty, all digits, or that contain the statement chrome (Sanlam, Lamprecht, “Transaction Summary”, “From ”, the column header, “Tran ”) are dropped.</li>
+      <li>A line that matches the transaction regex becomes a row: two-letter code, body, trade date <code>dd/mm/yy</code>, optional settle date, optional quantity, three-letter currency, amount. The body is split at the first all-caps token into description and security.</li>
+      <li>A non-matching line is attached to the previous row. If it starts 60 points or more to the right of <code>Code</code>, it is appended to the security name. Otherwise it is appended to <code>Note</code>.</li>
+      <li><code>SaveTxRowsAsync</code> loads existing <code>(TradeDate, LocalAmount)</code> pairs. A blank code, a blank date, or a date that still will not parse is skipped. <code>DateRegex</code> rewrites <code>d/m/yy</code> to <code>yyyy-mm-dd</code> and is called twice on the trade date. Two-digit years become <code>20yy</code>. A pair already stored is skipped. New rows are inserted with the code unchanged, the note, and a quantity parsed as int or rounded decimal.</li>
+    </ol>
+
+    <h3>Portfolio PDF</h3>
+    <ol>
+      <li><code>ShowFileUpload("Import portfolio", ..., ".pdf")</code>. No holdings in the file adds the error “No holdings found in the PDF.” and returns <code>-1</code> without writing.</li>
+      <li>A header line that contains the word <code>SecurityDescription</code> records left edges for Quantity, that word, UnitCost, Price, Cost, MarketValue, Pct, and P&amp;L. A header missing any of those words is ignored.</li>
+      <li>Later lines drop words more than 80 points left of Quantity. Words are bucketed at the midpoints between headers. Quantity is every word whose right edge is more than 2 points left of <code>SecurityDescription</code>. A line with a blank security, or a quantity that is not a number, is skipped. That drops account lines, subtotals, and totals.</li>
+      <li><code>UpsertPortfolioAsync</code> skips a blank description, a null or zero market value, and the description <code>CONSTELLATION SOFTWARE-WT 40</code>. Those names are not marked seen.</li>
+      <li>A description already on a portfolio row updates only <code>Quantity</code> and <code>Market_Value</code>.</li>
+      <li>A new description is inserted with the PDF figures. If a security has the same <code>SecurityName</code>, the row copies that security’s id, currency id, and price. Otherwise the first word of the description is mapped (<code>australian</code> and <code>us</code> → <code>USD</code>, <code>euro</code> → <code>EUR</code>, <code>pound</code> → <code>GBP</code>, anything else → <code>USD</code>), the currency id is looked up by <code>Currency.Name</code>, and price is set to 1.</li>
+      <li>Every existing portfolio description that was not seen is deleted. A skipped line therefore removes an older row of the same name. Save persists the in-place updates, the inserts, and the deletes together.</li>
+    </ol>
+
+    <h3>Link Trans</h3>
+    <ol>
+      <li>Group securities by <code>SecurityName</code>. One row in the group supplies the id. Several rows supply the id whose <code>Exchange == "Milan"</code>. No Milan row adds a warning and that name is not linked.</li>
+      <li>Load transactions that have a <code>Security</code> string present in that map. Update a row whose <code>SecurityID</code> is null, or whose id is one of a duplicated name and is not the chosen id.</li>
+      <li>The record count is <code>SaveChangesAsync</code>, so it counts every changed column EF writes, not the number of PDF lines.</li>
+    </ol>
+    <p><code>PortfolioMap</code> and <code>TransactionMap</code> in <code>Classes/Classes.cs</code> describe CSV columns. No import registers them. Transaction import is the PDF path only.</p>
+  </section>
+
+  <section id="update">
+    <h2>Price updates</h2>
+    <p>Menu handlers are in <code>Menu.razor</code> / <code>Menu.razor.cs</code>. <strong>Update All</strong> is <code>UpdateService.UpdateSecuritiesAsync</code>. The portfolio <strong>Refresh</strong> button calls that and then reloads portfolio rows.</p>
+
+    <h3>Update All</h3>
+    <ol>
+      <li><code>ShowProgress("Updating Securities")</code>.</li>
+      <li>Load tickers except symbol <code>USDUSD=X</code>, and every watchlist symbol. One <code>YahooQuotesBuilder().Build().GetSnapshotAsync</code> asks for the union. While that task runs, a one-second timer advances the bar from 10 toward 80.</li>
+      <li>In one scope, for each security with a ticker: copy currency name, regular price, previous close, exchange, change percent, dividend yield, EPS, trailing PE, forward PE, and market cap from the snapshot. A missing snapshot sets <code>Price = 1</code>.</li>
+      <li>For each currency whose name is not <code>USDUSD=X</code>, set <code>Rate</code> from the snapshot of <code>Currency.Symbol</code>. A miss leaves the old rate. Save.</li>
+      <li><code>UpdatePortfolioAsync</code>.</li>
+      <li><code>AppendPortfolioHistoryAsync</code> sums portfolio <code>Market_Value</code>, rounds to 2 decimals, and inserts or overwrites the <code>History</code> row <code>Symbol = "Portfolio"</code> for today.</li>
+      <li><code>SyncAllHistoryAsync</code> walks every ticker and watchlist symbol. When the latest stored date is before yesterday, it calls Yahoo history from that date (or from five years ago when the symbol has no rows) and appends missing <code>(Symbol, Date)</code> keys. It then inserts today’s price from the snapshot already in memory when that key is new. An existing today row is not updated. A Yahoo rejection for one symbol is swallowed.</li>
+      <li>The bar goes to 100 and <code>Hide</code> runs in <code>finally</code>, unless the catch path is stuck on the Ok dialog described above.</li>
+    </ol>
+
+    <h3>Recalculate Portfolio</h3>
+    <p><code>UpdatePortfolioAsync</code> does not call Yahoo. For each portfolio row in one scope:</p>
+    <ol>
+      <li>Remember <code>total</code> as the sum of <code>Market_Value</code> already stored, before any row is rewritten.</li>
+      <li>Set <code>Currency</code> from <code>security.Currency</code>, or from <code>Cash(description)</code> when that is empty.</li>
+      <li>Set <code>Price</code> from <code>security.Price</code>.</li>
+      <li>Market value is <code>Price * Quantity</code> when currency is <code>USD=X</code>. Otherwise it is <code>Price * Quantity * security.currency.Rate</code>.</li>
+      <li><code>Gain = Market_Value - Cost</code>. <code>Cost</code> stays at the imported figure.</li>
+      <li><code>GainPerc</code> is null when <code>Price == 1</code>. Otherwise <code>Gain / Cost * 100</code>.</li>
+      <li><code>Pct = new Market_Value / total * 100</code>, using the total from step 1.</li>
+      <li>From the security’s transactions, buys and long-ins add quantity, sells and long-outs subtract it. Both comparisons are lowercase. When shares remain, a <code>cv</code> transaction is added in memory only, dated today, amount <code>shares * security.Price</code>. <code>XirrCalculator.CalculateXirr</code> runs on that list. A finite result is stored on <code>Portfolio.IRR</code> as percent (<code>rate * 100</code>).</li>
+    </ol>
+    <p>Editing a quantity on the portfolio saves the integer, calls this method, reloads, and turns the dollar columns on. It does not call Yahoo.</p>
+
+    <h3>Recalculate XIRR</h3>
+    <p><code>Menu.UpdateSecuritiesXIRR</code> loads every security in one scope. For each, it sums lowercase <code>by</code>/<code>li</code> against <code>sl</code>/<code>lo</code>. A positive remainder adds an in-memory <code>cv</code> row of <code>remainder * security.Price</code>. <code>Security.XIRR</code> is set to <code>rate * 100</code> when the result is not NaN. Save, then navigate to <code>/portfolio</code>. Yahoo is not called. This is the value the securities page shows in the CAGR column. The securities page does not write <code>XIRR</code> itself.</p>
+
+    <h3>Rebuild history</h3>
+    <p><strong>Rebuild Securities History</strong> is <code>UpdateHistoryAsync</code>. <strong>Rebuild Watchlist History</strong> and the watchlist <strong>Update History</strong> button are <code>UpdateWatchlistHistoryAsync</code>. Both load existing history keys, then for each symbol fetch Yahoo daily history from the last stored date, or from five years ago when there is none. They insert missing keys only. After the loop they take one more snapshot and insert today when that key is new. They do not delete old rows, and they do not refresh a today row that already exists. <code>FetchTickerHistoryAsync</code> uses each tick’s close and <code>DateOnly</code> from the tick’s UTC date. An exception on one symbol is ignored.</p>
+  </section>
+
+  <section id="portfolio">
+    <h2>Portfolio screen</h2>
+    <p><code>PortfolioView.OnInitializedAsync</code> loads portfolios through the no-tracking read, so each row already has security, ticker, transactions, and currency. It sets <code>lastUpdated</code> to now. <code>FormatRelative</code> still returns <code>Not Yet</code> while the static field <code>IsUpdated</code> is false. That flag is static, so it is shared by every circuit in the process. Refresh sets it true before the Yahoo call and sets <code>lastUpdated</code> after <code>UpdateSecuritiesAsync</code> returns.</p>
+    <p><code>hasRefreshed</code> starts false. Dollar cells and the totals table render only when it is true. The eye toggles it. A saved quantity sets it true. Refresh does not.</p>
+    <p>Sorting is in memory on the loaded list. Security name opens <code>TransViewMod</code> with a cloned list: buy and long-in amounts are negated, sell and long-out quantities are negated, an <code>M-Val</code> row is appended when the signed quantity is positive (<code>quantity * price</code>), and a <code>Gain</code> row is the signed sum, multiplied by <code>security.currency.Rate</code> unless the last transaction currency is <code>USD=X</code>. Clicking the popup clears it. Those extra rows are not saved.</p>
+    <p>The <strong>Ex</strong> checkbox stores portfolio ids in a page field. The toolbar chart passes the related security ids into <code>ComputePortfolioChartAsync</code> when the set is not empty. With an empty set it calls <code>LoadTickerDataAsync("Portfolio", null)</code>, which reads <code>History</code> rows for symbol <code>Portfolio</code>. That series only contains days <code>AppendPortfolioHistoryAsync</code> has written. <code>BackfillPortfolioHistoryAsync</code> can rebuild the whole series and is not called from any page.</p>
+    <p>The toolbar chart passes cost base <code>1339055</code> and <code>StartAtFirstBuy = false</code>. A row chart passes a null cost base and <code>StartAtFirstBuy = true</code>.</p>
+  </section>
+
+  <section id="securities">
+    <h2>Securities screen</h2>
+    <ol>
+      <li>Load every <code>History</code> row for <code>^GSPC</code> into a date → price dictionary, last row winning on a duplicate date.</li>
+      <li>Load securities whose ticker symbol is null or does not end with <code>=X</code>.</li>
+      <li>Load portfolio rows with <code>Quantity &gt; 0</code> and keep their security ids. The name is blue when the id is in that set and the row is not the selected one.</li>
+      <li><code>ComputeGainPerc</code> sets the unmapped <code>GainPerc</code>: <code>(market value of remaining shares + sell proceeds − buy cost) / buy cost</code>, using lowercase <code>by</code>/<code>li</code>/<code>sl</code>/<code>lo</code>. Null when buy cost is not positive.</li>
+      <li><code>ComputeSpyPerf</code> sets unmapped <code>SpyPerf</code> only when the first <code>by</code> or <code>li</code> is at least 365 days ago. It calls <code>CalculateSpyXirr</code> with the security’s transactions, the S&amp;P dictionary, and the currency rate (1 when <code>Security.Currency</code> is <code>USD=X</code>). The column is green when <code>XIRR &gt;= SpyPerf</code>.</li>
+    </ol>
+    <p>The CAGR column is the persisted <code>Security.XIRR</code>, and it is blank under the same one-year rule. <strong>Gains</strong> reloads tracked securities, runs <code>ComputeGains</code>, the two computes above, and saves. <code>ComputeGains</code> adds an in-memory <code>cv</code> when shares remain, sums signed local amounts for <code>by</code>, <code>li</code>, <code>lo</code>, <code>sl</code>, <code>dv</code>, <code>in</code>, and <code>cv</code>, then sets <code>Gain</code> to that sum times <code>currency.Rate</code> unless <code>Security.Currency</code> is <code>USD=X</code>. <code>Gain</code> is a column. <code>GainPerc</code> and <code>SpyPerf</code> are not, so only <code>Gain</code> survives the save. The page still shows the values it just computed.</p>
+    <p>Clicking the name clones transactions the same way as the portfolio popup, then appends <code>M-Val</code> and <code>Gain</code>. Right-click runs <code>ShowContextMenu</code> on the element id <code>Securities</code>. <strong>Investment List</strong> writes <code>Negative-Investments-Exported.csv</code> and <code>Positive-Investments-Exported.csv</code> under <code>DownloadsPath</code>, split by the sign of <code>Gain</code>, with ticker, name, gain, and <code>XIRR</code>. A missing downloads path returns without a message.</p>
+    <p>The chart button calls <code>GraphService.LoadTickerDataAsync(symbol, security.Id)</code>.</p>
+  </section>
+
+  <section id="other">
+    <h2>Other screens</h2>
+
+    <h3>Transactions</h3>
+    <p>No route data: every transaction, ordered by the repo and then by the page sort. With route data: <code>TranCode == Data</code>, title <code>FEES</code>, a total of <code>LocalAmount</code> formatted as en-GB, and one synthetic “Management Cost” row per year dated 31 December. The context-menu markup is not bound to a right-click, and <code>ContextMenuShow</code> asks JavaScript to show an element id <code>Securities</code>, which this page does not have. <code>RowClicked</code> calls Yahoo search and discards the symbol. The table does not call it. <code>Note</code> is not rendered.</p>
+
+    <h3>Tickers</h3>
+    <p><code>GetEntitiesNTAsync&lt;Ticker&gt;</code> and an in-memory sort on symbol or name. No write.</p>
+
+    <h3>Expenses</h3>
+    <p>Load currencies into a dictionary of <code>Name</code> → <code>Rate</code> where the rate is not 0. Load transactions whose code is not <code>by</code>, <code>sl</code>, <code>li</code>, <code>dv</code>, or <code>in</code>, and whose <code>SecurityID</code> is null. <code>lo</code> is not in that exclusion list. The dropdown lists the distinct codes in that result. No boxes checked means all of those rows. USD amount is the local amount times the rate for <code>Transaction.Currency</code> looked up as <code>Currency.Name</code>. A missing rate leaves the amount unchanged. Year groups and the grand total sum those USD amounts. Sort is in memory.</p>
+
+    <h3>Watchlist</h3>
+    <ol>
+      <li>Load watchlist rows.</li>
+      <li><code>LoadLiveQuotesAsync</code> takes one Yahoo snapshot. Price, change percent, and regular-market time (UTC) stay in a page dictionary. A blank stored name is replaced from long name, then short name, then the symbol, and that name is saved. A Yahoo failure leaves the prices blank and still shows the symbols.</li>
+      <li><code>LoadExtHoursAsync</code> calls <code>GetModulesAsync(symbol, ["price"])</code> four at a time. In market state <code>PRE</code> or <code>PREPRE</code> it prefers <code>preMarketPrice</code>, otherwise <code>postMarketPrice</code>. The page shows that price against the regular price as <code>Ext %</code>.</li>
+      <li><strong>Add</strong> uppercases the box, rejects a duplicate with a page error, snapshots the symbol for a name, and inserts a <code>Watchlist</code> row.</li>
+      <li><strong>✕</strong> deletes that row and reloads.</li>
+      <li>The chart uses <code>LoadAdhocTickerDataAsync</code>. History rows for the symbol are used when any exist. Otherwise Yahoo history for five years is fetched and not written back. The title prefers the watchlist name.</li>
+    </ol>
+
+    <h3>Export</h3>
+    <p><strong>Securities to Csv</strong> writes <code>{DownloadsPath}SecuritiesExported.csv</code> with a header and <code>ticker.Symbol,SecurityName</code> for every security. <strong>Tickers to Csv</strong> writes <code>TickersExported.csv</code> with symbol, name, and <code>Ticker.Currency</code>. Fields are concatenated. A comma in a name splits the column. There is no dialog after the write.</p>
+  </section>
+
+  <section id="backup">
+    <h2>Backup and restore</h2>
+    <ol>
+      <li><code>Backup.OnInitializedAsync</code> lists <code>*.bak</code> in <code>AppConfig.BackupPath</code> and shows the <code>name.bak</code> tail of each path.</li>
+      <li>The route value becomes the title: <code>Backup</code> or <code>Restore</code>.</li>
+      <li>Submit with an empty backup path sets <code>ErrorMessage</code> and stays on the page.</li>
+      <li>Backup uses the text box plus <code>.bak</code> when the box is not empty, otherwise the selected list value. An existing file at that path is deleted first. <code>Repo.SqlBackupAsync</code> runs <code>Use Credo Backup Database Credo to Disk = {path} with init</code>. The database name in that statement is the literal <code>Credo</code>, not <code>AppConfig.DbName</code>.</li>
+      <li>Restore checks <code>DbName</code> against <code>^[A-Za-z_][A-Za-z0-9_]*$</code>, then runs <code>ALTER DATABASE ... SINGLE_USER WITH ROLLBACK IMMEDIATE</code>, <code>RESTORE ... WITH REPLACE</code> from the selected file, then <code>SET MULTI_USER</code>. The file path is a SQL parameter. The database name is interpolated after the regex check.</li>
+      <li>Success navigates to <code>/</code>. A SQL exception is logged and shown on the form.</li>
+    </ol>
+  </section>
+
+  <section id="charts">
+    <h2>Charts</h2>
+    <p><code>GraphService</code> builds a <code>ChartData</code> record: labels, prices, aligned S&amp;P values, buy marks, sell marks, title. <code>ChartModal</code> renders it once, on the next <code>OnAfterRenderAsync</code>, by calling <code>renderSecurityChart</code>.</p>
+    <table>
+      <thead><tr><th>Caller</th><th>Loader</th><th>What the series is</th></tr></thead>
+      <tbody>
+        <tr><td>Portfolio row, securities row</td><td><code>LoadTickerDataAsync(symbol, securityId)</code></td><td><code>History</code> for that symbol. Empty history returns null and no modal opens. Buy marks are transactions with code <code>BY</code> or <code>LI</code>. Sell marks are <code>SL</code> or <code>LO</code>. The comparison is ordinal and uppercase. The mark is placed on the first history date on or after the trade, at that day’s price.</td></tr>
+        <tr><td>Portfolio toolbar, nothing excluded</td><td><code>LoadTickerDataAsync("Portfolio", null)</code></td><td>Stored <code>Portfolio</code> history. No trade marks, because the security id is null.</td></tr>
+        <tr><td>Portfolio toolbar, some <strong>Ex</strong> boxes</td><td><code>ComputePortfolioChartAsync</code></td><td>For each date from the first case-insensitive buy to today, sum <code>quantity × price on or before that date × FX on or before that date</code> for securities not excluded. Quantity walks <code>by</code>/<code>li</code> up and <code>sl</code>/<code>lo</code> down. Non-<code>USD=X</code> currencies need a history series whose symbol equals <code>Security.Currency</code>. No trade marks.</td></tr>
+        <tr><td>Watchlist</td><td><code>LoadAdhocTickerDataAsync</code></td><td>Local history when present, otherwise a live five-year Yahoo history that is not saved. No trade marks.</td></tr>
+      </tbody>
+    </table>
+    <p><code>AlignSpy</code> walks <code>^GSPC</code> in date order and forward-fills each target date with the latest S&amp;P price on or before it. Dates before the first S&amp;P row stay null.</p>
+    <p>In the browser, <code>renderSecurityChart</code> keeps the full arrays on <code>_chartParams</code> and draws a slice. <code>startAtFirstBuy</code> sets the slice start to the first non-null buy mark, so that window only moves when the uppercase buy query returned rows. Clicking the plot increases the offset to the clicked date. <strong>Percentage</strong> calls <code>toggleSecurityChartPct</code> and keeps the offset. Percent change is <code>(value / base − 1) × 100</code>. The base is the cost base passed from C# when it is not null; otherwise the first non-null point of the visible slice. The portfolio toolbar passes <code>1339055</code>. S&amp;P percent uses its own first point. 50- and 200-day averages are computed on the full series, then sliced and, in percent mode, rebasing to the same base. <code>renderMarketValueChart</code> is not called from C#.</p>
+    <p><code>SliceByRange</code> can cut a <code>ChartData</code> to about 1, 2, or 5 years of daily points. No page calls it. <code>LoadPortfolioDataAsync</code> is the same Portfolio-plus-S&amp;P read as the toolbar’s unfiltered path, and no page calls it.</p>
+  </section>
+
+  <section id="xirr">
+    <h2>XIRR</h2>
+    <p><code>XirrCalculator</code> is static. <code>CalculateXirr(transactions)</code> builds cash flows and skips any code it does not list.</p>
+    <table>
+      <thead><tr><th>Code</th><th>Sign of <code>LocalAmount</code></th></tr></thead>
+      <tbody>
+        <tr><td><code>by</code>, <code>li</code></td><td>Negative (money out)</td></tr>
+        <tr><td><code>sl</code>, <code>lo</code>, <code>dv</code>, <code>in</code>, <code>cv</code></td><td>Positive (money in)</td></tr>
+        <tr><td><code>dp</code>, <code>wd</code>, and anything else</td><td>Omitted</td></tr>
+      </tbody>
+    </table>
+    <p>The solver is Newton–Raphson from guess <code>0.1</code>, 200 iterations, tolerance <code>1e-8</code>, year length 365. A zero derivative or a miss falls through to bisection from <code>-0.999</code> to <code>100</code>. Bisection returns 0 when the NPV at the two ends has the same sign or the loop ends. An empty cash-flow list returns 0, which callers then store as 0 percent when they only reject NaN.</p>
+    <p><code>CalculateSpyXirr</code> replays <code>by</code>/<code>li</code>/<code>sl</code>/<code>lo</code> as if each buy’s USD amount (<code>LocalAmount * currencyRate</code>) had bought <code>^GSPC</code> at the first stored S&amp;P price on or after the trade. A sell removes the same fraction of those hypothetical shares. Remaining shares are closed at the latest S&amp;P price. The same solver runs on that series. Callers multiply a finite rate by 100 before display or storage.</p>
+    <p>The three places that add a <code>cv</code> row (portfolio recalc, menu XIRR, securities <code>ComputeGains</code>) only do it in the list passed to the calculator or the gain sum. They do not insert a <code>cv</code> transaction.</p>
+  </section>
+
+  <section id="traps">
+    <h2>Where flows disagree</h2>
+    <p>These are differences between paths that handle the same idea. Each one is what the current code does.</p>
+    <ul>
+      <li><strong>Trade-code case.</strong> PDF import stores the lowercase code. Portfolio IRR, menu XIRR, gain math, and expenses compare lowercase literals. <code>GraphService.IsBuy</code> / <code>IsSell</code> ignore case, and the excluded-holdings chart uses those. <code>LoadTickerDataAsync</code> looks for <code>BY</code>, <code>LI</code>, <code>SL</code>, and <code>LO</code>. With lowercase rows the buy and sell dots are empty, and a portfolio-row chart does not jump to the first buy.</li>
+      <li><strong>Portfolio percent.</strong> <code>Pct</code> divides the new market value by the sum of market values from before the loop.</li>
+      <li><strong>Yesterday.</strong> The non-USD branch multiplies <code>security.PrevClose</code> by the current FX rate. The local variable is named <code>prevFx</code>. The <code>USD=X</code> branch uses previous close, or price when previous close is null, times quantity, with no FX term.</li>
+      <li><strong>Price 1.</strong> A missed Yahoo snapshot stores price 1. Portfolio <code>GainPerc</code> is then stored as null. A new PDF holding with no matching security also starts at price 1 until an update finds a ticker.</li>
+      <li><strong>Portfolio chart versus one day of history.</strong> The unfiltered toolbar chart reads symbol <code>Portfolio</code>. Update All only upserts today on that symbol. The full reconstruction method is <code>BackfillPortfolioHistoryAsync</code>, and nothing in the UI calls it. Checking <strong>Ex</strong> switches to the transaction reconstruction, which can be a much longer series.</li>
+      <li><strong>History “rebuild”.</strong> Both rebuild methods resume at the last stored date. They add missing dates. They leave an existing today row at its old price. Update All’s daily sync does the same, and it only calls Yahoo history when the last date is before yesterday.</li>
+      <li><strong>Currency name and symbol.</strong> Live FX is fetched by <code>Currency.Symbol</code>. Tickers, expenses, and unmatched portfolio rows look up <code>Currency.Name</code>. The CSV map writes the <code>currency</code> column to <code>Name</code> and the <code>symbol</code> column to <code>Symbol</code>.</li>
+      <li><strong>Gain on the securities page versus gain on the portfolio.</strong> Securities gain is the signed sum of transaction amounts, plus an in-memory close-out at <code>shares * price</code>, then times <code>currency.Rate</code> unless the security currency is <code>USD=X</code>. Portfolio gain is <code>Market_Value - Cost</code>, and <code>Cost</code> is whatever the holdings PDF stored.</li>
+      <li><strong>Backup database name.</strong> Backup SQL hardcodes <code>Credo</code>. Restore uses <code>AppConfig.DbName</code>.</li>
+      <li><strong>Ok dialog.</strong> The only <code>ShowMessage</code> caller is the update failure path, and Ok does not complete its task.</li>
+      <li><strong>Transaction dedup.</strong> Two different trades on the same date with the same local amount collapse to one row. Security name is not part of the key.</li>
+      <li><strong>Link and securities import.</strong> Securities import links only the names it just created. Link Trans is the pass that fixes older rows and Milan-versus-other duplicates.</li>
+    </ul>
+  </section>
+
+  <section id="dead">
+    <h2>No caller</h2>
+    <p>Present in the project, and not reached from a page, the menu, or startup:</p>
+    <ul>
+      <li><code>Services/Internet.cs</code> — <code>ResolveTickerViaApi</code> searches Yahoo by security name and returns the first quote’s symbol. The class is not registered in <code>Program.cs</code>.</li>
+      <li><code>GraphService.LoadPortfolioDataAsync</code>, <code>SliceByRange</code>, <code>BackfillPortfolioHistoryAsync</code>.</li>
+      <li><code>State.ShowFilePicker</code> and the unsubscribed <code>FileNameGet</code> event. <code>DialogBox.FileNameGet</code> is private and unused.</li>
+      <li><code>Classes.PortfolioMap</code>, <code>Classes.TransactionMap</code>, and the empty <code>Classes</code> type. <code>TransactionMap</code> maps <code>TranCode</code> through <code>DecimalNullConverter</code>.</li>
+      <li><code>Extensions</code> (<code>toDateString</code>, <code>toCultureInfo</code>, <code>toCurrencyString</code>, <code>toPercentageString</code>).</li>
+      <li><code>gData.cs</code> — an empty namespace.</li>
+      <li><code>AppConfig.MarketValue</code>.</li>
+      <li><code>wwwroot/Script/JavaScript.js</code> — <code>renderMarketValueChart</code>.</li>
+      <li><code>TransactionsView.RowClicked</code> and the transactions context-menu markup.</li>
+      <li><code>Menu.Test</code> — the menu item is commented out. The method body is commented out.</li>
+      <li><code>Components/Pages/Home.razor</code> at <code>/home</code>.</li>
+    </ul>
+  </section>
+</main>
+</body>
+</html>
