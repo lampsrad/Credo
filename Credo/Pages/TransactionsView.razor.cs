@@ -6,11 +6,13 @@ using System.Text.Json;
 
 namespace Credo.Pages;
 
-public partial class TransactionsView
+public partial class TransactionsView : IDisposable
 {
     [Inject] Repo repo { get; set; } = default!;
     [Inject] IJSRuntime jsr { get; set; } = default!;
+    [Inject] State state { get; set; } = default!;
     [Parameter] public string? Data { get; set; }
+    private IList<Transaction> allTransactions = [];
     private IList<Transaction>? Transactions { get; set; }
     private IList<Transaction> YearlyFees { get; set; } = new List<Transaction>();
     private string sortColumn = "Security";
@@ -25,25 +27,47 @@ public partial class TransactionsView
     {
         await jsr.InvokeVoidAsync("ShowContextMenu", "Securities", e.ClientX, e.ClientY);
     }
+    protected override void OnInitialized()
+    {
+        state.YearChanged += OnYearChanged;
+    }
+    public void Dispose()
+    {
+        state.YearChanged -= OnYearChanged;
+    }
+    private void OnYearChanged() => _ = InvokeAsync(() =>
+    {
+        ApplyYear();
+        StateHasChanged();
+    });
     protected override async Task OnParametersSetAsync()
     {
+        allTransactions = Data is null
+            ? await repo.GetEntitiesNTAsync<Transaction>(null)
+            : await repo.GetEntitiesNTAsync<Transaction>(x => x.TranCode == Data);
+        ApplyYear();
+    }
+    private void ApplyYear()
+    {
+        YearlyFees = new List<Transaction>();
+        var rows = state.Year is int year
+            ? allTransactions.Where(t => t.TradeDate.Year == year).ToList()
+            : allTransactions.ToList();
+        Transactions = rows;
         if (Data is null)
-            Transactions = await repo.GetEntitiesNTAsync<Transaction>(null);
+            Title = state.Year is int selected ? selected.ToString() : "";
         else
         {
             Title = "FEES";
-            Transactions = await repo.GetEntitiesNTAsync<Transaction>(x => x.TranCode==Data);
-           var Gy = Transactions.GroupBy(x => x.TradeDate.Year);
-            foreach(var y in Gy)
+            foreach (var y in rows.GroupBy(x => x.TradeDate.Year))
             {
-                var t = new Transaction
+                YearlyFees.Add(new Transaction
                 {
-                    TradeDate= new DateOnly(y.Key,12,31),
-                    Security= "Management Cost",
-                    Currency=y.LastOrDefault()?.Currency,
-                    LocalAmount= y.Sum(x=>x.LocalAmount),
-                };
-                YearlyFees.Add(t);
+                    TradeDate = new DateOnly(y.Key, 12, 31),
+                    Security = "Management Cost",
+                    Currency = y.LastOrDefault()?.Currency,
+                    LocalAmount = y.Sum(x => x.LocalAmount),
+                });
             }
         }
         SortData();

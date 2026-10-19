@@ -185,6 +185,8 @@
       <thead><tr><th>Menu</th><th>What it does</th></tr></thead>
       <tbody>
         <tr><td>Credo</td><td>Opens the portfolio. This is the home screen.</td></tr>
+        <tr><td>Years → All</td><td>No year is selected. Transactions and Expenses include every year. This is how the menu starts, and the label reads <strong>Years</strong>.</td></tr>
+        <tr><td>Years → a year</td><td>Limits Transactions and Expenses to trade dates in that year. The label shows the year, and that row is gold. The choice stays as you move between screens. Pick <strong>All</strong> to clear it.</td></tr>
         <tr><td>Admin → Backup</td><td>Saves a copy of the Credo database. See <a href="#backup">Backup and Restore</a>.</td></tr>
         <tr><td>Admin → Restore</td><td>Replaces the database with a saved copy.</td></tr>
         <tr><td>Export → Securities to Csv</td><td>Writes <code>SecuritiesExported.csv</code> (ticker and security name) into <code>Downloads\Credo</code>. There is no confirmation on screen.</td></tr>
@@ -319,7 +321,7 @@
 
   <section id="transactions">
     <h2>Transactions</h2>
-    <p>Every imported transaction. Click <strong>Date</strong>, <strong>Code</strong>, or <strong>Security</strong> to sort.</p>
+    <p>Every imported transaction. Click <strong>Date</strong>, <strong>Code</strong>, or <strong>Security</strong> to sort. A year chosen under <strong>Years</strong> leaves only that year’s trade dates, and the heading shows the year. <strong>All</strong> shows every year and clears the heading.</p>
     <table>
       <thead><tr><th>Column</th><th>Meaning</th></tr></thead>
       <tbody>
@@ -343,6 +345,7 @@
     <p>
       Cash lines that are not a buy, sell, dividend, or interest, and that are not linked to a security.
       Typical rows are deposits, withdrawals, and fees. Rows are grouped by year, with a year total and a grand total in US dollars.
+      A year chosen under <strong>Years</strong> leaves only that year. <strong>All</strong> includes every year. The code list and the year choice both apply.
       The dollar conversion uses the exchange rates already stored.
     </p>
     <table>

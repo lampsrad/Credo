@@ -38,6 +38,15 @@ public class Repo
         await using var cx = dbFactory.CreateDbContext();
         return await cx.Transactions.MaxAsync(t => (DateOnly?)t.TradeDate);
     }
+    public async Task<IList<int>> GetTransactionYearsAsync()
+    {
+        await using var cx = dbFactory.CreateDbContext();
+        return await cx.Transactions
+            .Select(t => t.TradeDate.Year)
+            .Distinct()
+            .OrderBy(y => y)
+            .ToListAsync();
+    }
     public async Task<T?> GetEntityNTAsync<T>(Expression<Func<T, bool>>? filter = null) where T : class
     {
         await using var cx = dbFactory.CreateDbContext();

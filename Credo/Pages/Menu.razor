@@ -7,6 +7,19 @@
 
     <ul>
         <li>
+            <a class=men href="#">@(state.Year is int selected ? $"Years {selected}" : "Years")</a>
+            <ul class=sub>
+                <li class="@(state.Year is null ? "on" : null)"><a href="#" @onclick="() => SelectYear(null)" @onclick:preventDefault="true">All</a></li>
+                @foreach (var year in Years)
+                {
+                    <li class="@(state.Year == year ? "on" : null)"><a href="#" @onclick="() => SelectYear(year)" @onclick:preventDefault="true">@year</a></li>
+                }
+            </ul>
+        </li>
+    </ul>
+
+    <ul>
+        <li>
             <a class=men href="#">Admin</a>
             <ul class=sub>
                 <li><a href="backup/Backup">Backup</a></li>

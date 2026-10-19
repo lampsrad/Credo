@@ -161,7 +161,7 @@
       <tbody>
         <tr><td><code>/</code> and <code>/portfolio</code></td><td><code>PortfolioView</code></td></tr>
         <tr><td><code>/securities</code></td><td><code>SecuritiesView</code></td></tr>
-        <tr><td><code>/transactions</code> and <code>/transactions/{Data}</code></td><td><code>TransactionsView</code>. <code>Data</code> is matched to <code>TranCode</code> and the title becomes <code>FEES</code>. The menu only links to <code>/transactions</code>.</td></tr>
+        <tr><td><code>/transactions</code> and <code>/transactions/{Data}</code></td><td><code>TransactionsView</code>. <code>Data</code> is matched to <code>TranCode</code> and the title becomes <code>FEES</code>. <strong>View → Transactions</strong> links to <code>/transactions</code>. <strong>Years</strong> does not navigate. It sets <code>State.Year</code>, which Transactions and Expenses both read.</td></tr>
         <tr><td><code>/tickers</code></td><td><code>TickerView</code></td></tr>
         <tr><td><code>/expenses</code></td><td><code>Expenses</code></td></tr>
         <tr><td><code>/watchlist</code></td><td><code>WatchlistView</code></td></tr>
@@ -360,13 +360,13 @@ await scope.SaveChangesAsync();</pre>
     <h2>Other screens</h2>
 
     <h3>Transactions</h3>
-    <p>No route data: every transaction, ordered by the repo and then by the page sort. With route data: <code>TranCode == Data</code>, title <code>FEES</code>, a total of <code>LocalAmount</code> formatted as en-GB, and one synthetic “Management Cost” row per year dated 31 December. The context-menu markup is not bound to a right-click, and <code>ContextMenuShow</code> asks JavaScript to show an element id <code>Securities</code>, which this page does not have. <code>RowClicked</code> calls Yahoo search and discards the symbol. The table does not call it. <code>Note</code> is not rendered.</p>
+    <p>No route data: every transaction, ordered by the repo and then by the page sort. <code>State.Year</code> null keeps every trade date. A year keeps rows whose <code>TradeDate.Year</code> equals it, and the title becomes that year. The <strong>Years</strong> menu lists <strong>All</strong> plus the distinct years from <code>Repo.GetTransactionYearsAsync</code>, oldest first. <code>SetYear</code> raises <code>YearChanged</code>. This page subscribes and filters the already loaded rows. With <code>{Data}</code>: <code>TranCode == Data</code>, title <code>FEES</code>, a total of <code>LocalAmount</code> formatted as en-GB, and one synthetic “Management Cost” row per year dated 31 December, built from the year-filtered rows. <code>YearlyFees</code> is rebuilt on each apply so a later visit does not keep the previous fee rows. The context-menu markup is not bound to a right-click, and <code>ContextMenuShow</code> asks JavaScript to show an element id <code>Securities</code>, which this page does not have. <code>RowClicked</code> calls Yahoo search and discards the symbol. The table does not call it. <code>Note</code> is not rendered.</p>
 
     <h3>Tickers</h3>
     <p><code>GetEntitiesNTAsync&lt;Ticker&gt;</code> and an in-memory sort on symbol or name. No write.</p>
 
     <h3>Expenses</h3>
-    <p>Load currencies into a dictionary of <code>Name</code> → <code>Rate</code> where the rate is not 0. Load transactions whose code is not <code>by</code>, <code>sl</code>, <code>li</code>, <code>dv</code>, or <code>in</code>, and whose <code>SecurityID</code> is null. <code>lo</code> is not in that exclusion list. The dropdown lists the distinct codes in that result. No boxes checked means all of those rows. USD amount is the local amount times the rate for <code>Transaction.Currency</code> looked up as <code>Currency.Name</code>. A missing rate leaves the amount unchanged. Year groups and the grand total sum those USD amounts. Sort is in memory.</p>
+    <p>Load currencies into a dictionary of <code>Name</code> → <code>Rate</code> where the rate is not 0. Load transactions whose code is not <code>by</code>, <code>sl</code>, <code>li</code>, <code>dv</code>, or <code>in</code>, and whose <code>SecurityID</code> is null. <code>lo</code> is not in that exclusion list. The dropdown lists the distinct codes in that result. No boxes checked means all of those rows. <code>State.Year</code> then keeps only that trade-date year. Null keeps every year. The same value filters Transactions. USD amount is the local amount times the rate for <code>Transaction.Currency</code> looked up as <code>Currency.Name</code>. A missing rate leaves the amount unchanged. Year groups and the grand total sum those USD amounts. Sort is in memory. <code>YearChanged</code> re-runs the filter on the rows already loaded.</p>
 
     <h3>Watchlist</h3>
     <ol>

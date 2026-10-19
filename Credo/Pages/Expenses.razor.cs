@@ -4,9 +4,10 @@ using System.Globalization;
 
 namespace Credo.Pages;
 
-public partial class Expenses
+public partial class Expenses : IDisposable
 {
     [Inject] Repo repo { get; set; } = default!;
+    [Inject] State state { get; set; } = default!;
 
     private static readonly HashSet<string> ExcludedCodes = ["by", "sl", "li" , "dv", "in"];
 
@@ -20,6 +21,19 @@ public partial class Expenses
     private IList<string> AvailableCodes { get; set; } = [];
     private string FilterLabel => selectedCodes.Count == 0 ? "All" : string.Join(", ", selectedCodes.Order());
 
+    protected override void OnInitialized()
+    {
+        state.YearChanged += OnYearChanged;
+    }
+    public void Dispose()
+    {
+        state.YearChanged -= OnYearChanged;
+    }
+    private void OnYearChanged() => _ = InvokeAsync(() =>
+    {
+        ApplyFilter();
+        StateHasChanged();
+    });
     protected override async Task OnInitializedAsync()
     {
         var currencies = await repo.GetEntitiesNTAsync<Currency>(null);
@@ -45,9 +59,12 @@ public partial class Expenses
     }
     private void ApplyFilter()
     {
-        Items = selectedCodes.Count == 0
+        IEnumerable<Transaction> rows = selectedCodes.Count == 0
             ? allItems
-            : allItems.Where(t => t.TranCode != null && selectedCodes.Contains(t.TranCode)).ToList();
+            : allItems.Where(t => t.TranCode != null && selectedCodes.Contains(t.TranCode));
+        if (state.Year is int year)
+            rows = rows.Where(t => t.TradeDate.Year == year);
+        Items = rows.ToList();
         SortData();
     }
     // Rate is stored as USD per 1 unit of the currency.

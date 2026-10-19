@@ -10,6 +10,17 @@ public class State
     public double ProgressVal { get; set; }
     public string? TitleD { get; set; }
 
+    /// <summary>Null means Transactions and Expenses include every trade-date year.</summary>
+    public int? Year { get; private set; }
+    public event Action? YearChanged;
+
+    public void SetYear(int? year)
+    {
+        if (Year == year) return;
+        Year = year;
+        YearChanged?.Invoke();
+    }
+
     public void Hide()
     {
         ProgressVal = 0;

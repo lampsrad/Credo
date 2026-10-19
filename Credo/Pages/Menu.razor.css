@@ -74,6 +74,10 @@ ul li {
             background-color: blue;
         }
 
+        ul li ul li.on {
+            background-color: #bf9f00;
+        }
+
         ul li ul li a {
             display: block !important;
             text-align: left;

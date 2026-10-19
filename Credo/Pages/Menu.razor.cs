@@ -12,8 +12,16 @@ public partial class Menu
     [Inject] NavigationManager nav { get; set; } = default!;
     [Inject] IHostApplicationLifetime lifetime { get; set; } = default!;
     [Inject] AppConfig cfg { get; set; } = default!;
+    [Inject] State state { get; set; } = default!;
     IList<string> Headers { get; set; } = new List<string>();
+    private IList<int> Years { get; set; } = new List<int>();
 
+    protected override async Task OnInitializedAsync()
+    {
+        Years = await repo.GetTransactionYearsAsync();
+    }
+
+    private void SelectYear(int? year) => state.SetYear(year);
 
     private void Close()
     {
