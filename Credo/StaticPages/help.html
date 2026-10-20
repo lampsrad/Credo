@@ -364,6 +364,7 @@
         <tr><td>Cur</td><td>Currency.</td></tr>
         <tr><td>Loc Amount</td><td>Amount in that currency.</td></tr>
         <tr><td>USD</td><td>The same amount in US dollars.</td></tr>
+        <tr><td>Perc</td><td>That cost as a percent of the current portfolio market value, leaving out cash. Each Glacier Fees or Management Fee row is multiplied by 12, and each Custody Fee row by 3, before the percent is taken. Other rows use the USD amount as stored. The year total and the grand total use the USD total in that row, with no further multiplier. The same portfolio value is used for every year.</td></tr>
       </tbody>
     </table>
   </section>
@@ -417,7 +418,7 @@
         <tr>
           <td>Transactions</td>
           <td>A transaction-summary PDF you choose</td>
-          <td>Reads each trade line: code, description, security, trade date, quantity, currency, and amount. Lines already stored (same date and amount) are skipped.</td>
+          <td>Reads each trade line: code, description, security, trade date, quantity, currency, and amount. Lines already stored (same date and amount) are skipped. A long-out with no quantity stores its note, such as Glacier Fees September 2026, as the security.</td>
         </tr>
         <tr>
           <td>Securities</td>

@@ -466,6 +466,15 @@ public partial class ImportView
         }
         return (string.Join(' ', tokens.Take(split)), string.Join(' ', tokens.Skip(split)));
     }
+    // A long-out with no shares is a fee. The note line names it, so that line is the security.
+    private static (string? Security, string? Note) LoFeeSecurity(string trancode, int? quantity, string? security, string? note)
+    {
+        if (string.Equals(trancode, "lo", StringComparison.OrdinalIgnoreCase)
+            && quantity is null or 0
+            && !string.IsNullOrWhiteSpace(note))
+            return (note.Trim(), null);
+        return (security, note);
+    }
     private sealed class PdfLine(double y, List<Word> words)
     {
         public double Y { get; } = y;
@@ -491,17 +500,19 @@ public partial class ImportView
             var localAmt = decimal.TryParse(rawAmt, NumberStyles.Any, CultureInfo.InvariantCulture, out var amt) ? amt : (decimal?)null;
             if (existing.Contains((parsedDate, localAmt)))
                 continue;
+            int? quantity = int.TryParse(qfield, out int i) ? i
+                : (decimal.TryParse(qfield, NumberStyles.Any, CultureInfo.InvariantCulture, out decimal d) ? (int)Math.Round(d) : null);
+            var (security, note) = LoFeeSecurity(trancode, quantity, row.Security, row.Note);
             transactions.Add(new Transaction
             {
                 TranCode = trancode,
                 Description = row.Description,
-                Security = row.Security,
+                Security = security,
                 TradeDate = parsedDate,
-                Quantity = int.TryParse(qfield, out int i) ? i
-                    : (decimal.TryParse(qfield, NumberStyles.Any, CultureInfo.InvariantCulture, out decimal d) ? (int)Math.Round(d) : null),
+                Quantity = quantity,
                 Currency = row.Currency,
                 LocalAmount = localAmt,
-                Note = row.Note
+                Note = note
             });
         }
         scope.AddRange(transactions);
