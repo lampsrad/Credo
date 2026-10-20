@@ -9,7 +9,7 @@ public partial class Expenses : IDisposable
     [Inject] Repo repo { get; set; } = default!;
     [Inject] State state { get; set; } = default!;
 
-    private static readonly HashSet<string> ExcludedCodes = ["by", "sl", "li" , "dv", "in"];
+    private static readonly HashSet<string> ExcludedCodes = ["by", "sl", "li", "dv", "in", "wd"];
 
     private IList<Transaction> allItems = [];
     private IList<Transaction>? Items { get; set; }

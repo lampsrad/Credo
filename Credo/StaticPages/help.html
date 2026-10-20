@@ -343,8 +343,8 @@
   <section id="expenses">
     <h2>Expenses</h2>
     <p>
-      Cash lines that are not a buy, sell, dividend, or interest, and that are not linked to a security.
-      Typical rows are deposits, withdrawals, and fees. Rows are grouped by year, with a year total and a grand total in US dollars.
+      Cash lines that are not a buy, sell, dividend, interest, or withdrawal, and that are not linked to a security.
+      Typical rows are deposits and fees. Rows are grouped by year, with a year total and a grand total in US dollars.
       A year chosen under <strong>Years</strong> leaves only that year. <strong>All</strong> includes every year. The code list and the year choice both apply.
       The dollar conversion uses the exchange rates already stored.
     </p>
@@ -522,12 +522,12 @@
         <tr><td>dv</td><td>Dividend.</td></tr>
         <tr><td>in</td><td>Interest.</td></tr>
         <tr><td>dp</td><td>Deposit. Shown on Expenses when it is not linked to a security.</td></tr>
-        <tr><td>wd</td><td>Withdrawal, including fees described that way on the statement. Shown on Expenses when it is not linked to a security.</td></tr>
+        <tr><td>wd</td><td>Withdrawal, including fees described that way on the statement. It stays on the statement and is left off Expenses.</td></tr>
         <tr><td>M-Val</td><td>Shown only in the trade window. Today’s value of the shares you still hold. It is not a stored transaction.</td></tr>
         <tr><td>Gain</td><td>Shown only in the trade window. The total result in US dollars. It is not a stored transaction.</td></tr>
       </tbody>
     </table>
-    <p>Buys and long-ins are treated as money you put in. Sells, long-outs, dividends, and interest are money you received. Deposits and withdrawals stay on the statement and on Expenses. They are left out of the annualized return.</p>
+    <p>Buys and long-ins are treated as money you put in. Sells, long-outs, dividends, and interest are money you received. Deposits stay on the statement and on Expenses. Withdrawals stay on the statement. Both are left out of the annualized return.</p>
   </section>
 
   <section id="files">
