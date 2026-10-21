@@ -19,7 +19,8 @@ public partial class Expenses : IDisposable
     private HashSet<string> selectedCodes = [];
     private bool dropdownOpen = false;
     private IList<string> AvailableCodes { get; set; } = [];
-    private decimal investedBase;
+    // Invested value for a trade month: Portfolio history minus that month's CASH history.
+    private Dictionary<(int Year, int Month), decimal> monthBases = [];
     private string FilterLabel => selectedCodes.Count == 0 ? "All" : string.Join(", ", selectedCodes.Order());
 
     protected override void OnInitialized()
@@ -42,8 +43,7 @@ public partial class Expenses : IDisposable
             .Where(c => c.Name != null && c.Rate != 0)
             .ToDictionary(c => c.Name!, c => c.Rate);
 
-        var portfolios = await repo.GetEntitiesNTAsync<Portfolio>(null);
-        investedBase = portfolios.Where(p => !IsCash(p)).Sum(p => p.Market_Value ?? 0m);
+        await LoadMonthBasesAsync();
 
         allItems = await repo.GetEntitiesNTAsync<Transaction>(
             t => t.TranCode != null &&t.SecurityID==null && !ExcludedCodes.Contains(t.TranCode));
@@ -80,19 +80,28 @@ public partial class Expenses : IDisposable
             return amount * rate;
         return amount;
     }
-    // Cash nominee lines and cash FX (symbol ending =X). US stocks also use currency USD=X, so currency is not the test.
-    private static bool IsCash(Portfolio p)
+    // Portfolio history includes cash. Pair it with the CASH row for that month (dated the 25th).
+    // Use the portfolio price on that date, otherwise the latest stored day in the month on or before it.
+    // If every stored day in the month is later, use the earliest.
+    private async Task LoadMonthBasesAsync()
     {
-        var symbol = p.security?.ticker?.Symbol;
-        if (symbol != null && symbol.EndsWith("=X", StringComparison.OrdinalIgnoreCase))
-            return true;
-        var name = p.Security_Description;
-        if (string.IsNullOrWhiteSpace(name)) return false;
-        return name.StartsWith("US DOLLAR", StringComparison.OrdinalIgnoreCase)
-            || name.StartsWith("POUND STERLING", StringComparison.OrdinalIgnoreCase)
-            || name.StartsWith("EURO", StringComparison.OrdinalIgnoreCase)
-            || name.StartsWith("AUSTRALIAN DOLLAR", StringComparison.OrdinalIgnoreCase)
-            || name.StartsWith("CANADIAN DOLLAR", StringComparison.OrdinalIgnoreCase);
+        var rows = await repo.GetEntitiesNTAsync<History>(
+            h => h.Symbol == "Portfolio" || h.Symbol == "CASH");
+        var portfolio = rows
+            .Where(h => h.Symbol == "Portfolio" && h.Price != null)
+            .GroupBy(h => (h.Date.Year, h.Date.Month))
+            .ToDictionary(g => g.Key, g => g.ToList());
+        foreach (var group in rows.Where(h => h.Symbol == "CASH" && h.Price != null).GroupBy(h => (h.Date.Year, h.Date.Month)))
+        {
+            var cash = group.FirstOrDefault(h => h.Date.Day == 25) ?? group.MaxBy(h => h.Date);
+            if (cash?.Price is not decimal cashPrice) continue;
+            if (!portfolio.TryGetValue(group.Key, out var days)) continue;
+            var chosen = days.Where(d => d.Date <= cash.Date).MaxBy(d => d.Date) ?? days.MinBy(d => d.Date);
+            if (chosen?.Price is not decimal portPrice) continue;
+            var basis = portPrice - cashPrice;
+            if (basis != 0)
+                monthBases[group.Key] = basis;
+        }
     }
     private decimal? LineUsd(Transaction t) =>
         t.LocalAmount.HasValue ? ToUsd(t.Currency, t.LocalAmount.Value) : null;
@@ -115,10 +124,25 @@ public partial class Expenses : IDisposable
         var usd = LineUsd(t);
         return usd is null ? null : usd.Value * AnnualFactor(t);
     }
-    private string FormatPerc(decimal? annualUsd)
+    private string FormatPerc(decimal? usd, DateOnly date)
     {
-        if (annualUsd is null || investedBase == 0) return "";
-        return string.Format(CultureInfo.InvariantCulture, "{0:N2}%", annualUsd.Value / investedBase * 100m);
+        if (usd is null || !monthBases.TryGetValue((date.Year, date.Month), out var basis)) return "";
+        return string.Format(CultureInfo.InvariantCulture, "{0:N2}%", usd.Value / basis * 100m);
+    }
+    // Year and grand totals stay on the statement USD. Each row uses its own month's invested value.
+    private string FormatGroupPerc(IEnumerable<Transaction> rows)
+    {
+        decimal sum = 0;
+        var any = false;
+        foreach (var t in rows)
+        {
+            var usd = LineUsd(t);
+            if (usd is null || !monthBases.TryGetValue((t.TradeDate.Year, t.TradeDate.Month), out var basis))
+                continue;
+            sum += usd.Value / basis * 100m;
+            any = true;
+        }
+        return any ? string.Format(CultureInfo.InvariantCulture, "{0:N2}%", sum) : "";
     }
     private static CultureInfo CultureFor(string? currency) => currency switch
     {

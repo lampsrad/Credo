@@ -232,6 +232,7 @@ public partial class ImportView
             .ToDictionary(p => p.Security_Description!, p => p);
         var portfs = new List<Portfolio>();
         var seenDescriptions = new HashSet<string>();
+        decimal cashTotal = 0m;
 
         foreach (var row in rows)
         {
@@ -240,6 +241,9 @@ public partial class ImportView
 
             if (string.IsNullOrWhiteSpace(desc) || (marketVal ?? 0) == 0 || desc == "CONSTELLATION SOFTWARE-WT 40")
                 continue;
+
+            if (IsCashDescription(desc))
+                cashTotal += marketVal ?? 0m;
 
             seenDescriptions.Add(desc);
 
@@ -281,8 +285,30 @@ public partial class ImportView
             .ToList();
         scope.RemoveRange(toDelete);
         scope.AddRange(portfs);
+        await UpsertCashHistoryAsync(scope, cashTotal);
         return await scope.SaveChangesAsync();
     }
+
+    // Cash market values on the holdings PDF are already USD. The month's total
+    // is stored on the 25th, replacing that date when this month is imported again.
+    private async Task UpsertCashHistoryAsync(RepoScope scope, decimal cashTotal)
+    {
+        var total = Math.Round(cashTotal, 2);
+        var today = DateOnly.FromDateTime(DateTime.Today);
+        var date = new DateOnly(today.Year, today.Month, 25);
+        var row = await scope.GetEntityAsync<History>(h => h.Symbol == "CASH" && h.Date == date);
+        if (row is null)
+            scope.Add(new History { Symbol = "CASH", Date = date, Price = total });
+        else
+            row.Price = total;
+    }
+
+    private static bool IsCashDescription(string name) =>
+        name.StartsWith("US DOLLAR", StringComparison.OrdinalIgnoreCase)
+        || name.StartsWith("POUND STERLING", StringComparison.OrdinalIgnoreCase)
+        || name.StartsWith("EURO", StringComparison.OrdinalIgnoreCase)
+        || name.StartsWith("AUSTRALIAN DOLLAR", StringComparison.OrdinalIgnoreCase)
+        || name.StartsWith("CANADIAN DOLLAR", StringComparison.OrdinalIgnoreCase);
 
     private static decimal? ParsePortDecimal(string? s)
     {

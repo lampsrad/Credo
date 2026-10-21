@@ -364,7 +364,7 @@
         <tr><td>Cur</td><td>Currency.</td></tr>
         <tr><td>Loc Amount</td><td>Amount in that currency.</td></tr>
         <tr><td>USD</td><td>The same amount in US dollars.</td></tr>
-        <tr><td>Perc</td><td>That cost as a percent of the current portfolio market value, leaving out cash. Each Glacier Fees or Management Fee row is multiplied by 12, and each Custody Fee row by 3, before the percent is taken. Other rows use the USD amount as stored. The year total and the grand total use the USD total in that row, with no further multiplier. The same portfolio value is used for every year.</td></tr>
+        <tr><td>Perc</td><td>That cost as a percent of the invested portfolio for the trade date’s month. Invested value is the stored portfolio total for that month minus the cash stored for the 25th. The portfolio total is the figure stored on the 25th, or the latest stored day in that month on or before the 25th. When the month has no stored day on or before the 25th, the earliest stored day in the month is used. Each Glacier Fees or Management Fee row is multiplied by 12, and each Custody Fee row by 3, before the percent is taken. Other rows use the USD amount as stored. The year total and the grand total add each row’s US dollar amount as a percent of that row’s month, and they do not apply those multipliers. A row with no stored portfolio total for its month, or an invested value of zero, is blank and is left out of those totals. The total percent is blank when every row in it is blank.</td></tr>
       </tbody>
     </table>
   </section>
@@ -428,7 +428,7 @@
         <tr>
           <td>Portfolio</td>
           <td>A holdings PDF you choose</td>
-          <td>The PDF becomes the holding list. A name already in the portfolio has its quantity and market value updated. A new name is added. A holding that is absent from the PDF is removed. A line with no market value is skipped, so an older row of that name can be removed with the rest.</td>
+          <td>The PDF becomes the holding list. A name already in the portfolio has its quantity and market value updated. A new name is added. A holding that is absent from the PDF is removed. A line with no market value is skipped, so an older row of that name can be removed with the rest. Cash lines whose names start with US dollar, pound sterling, euro, Australian dollar, or Canadian dollar are added together. That US dollar total is saved on the 25th of the current month. Importing again in the same month replaces that amount. A cash line with no market value is not included.</td>
         </tr>
         <tr>
           <td>Link Trans</td>
