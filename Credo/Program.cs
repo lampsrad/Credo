@@ -20,7 +20,8 @@ if (!app.Environment.IsDevelopment())
     app.UseExceptionHandler("/Error", createScopeForErrors: true);
     app.UseHsts();
     string url = app.Configuration["Kestrel:Endpoints:Http:Url"] ?? string.Empty;
-    appConfig.StartBrowser(url);
+    // Kestrel is not listening until app.Run(). Opening Chrome earlier shows "This site can't be reached" for the whole startup, including the watchlist SQL below.
+    app.Lifetime.ApplicationStarted.Register(() => appConfig.StartBrowser(url));
 }
 app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);
 app.UseHttpsRedirection();
