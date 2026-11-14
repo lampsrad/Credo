@@ -5,6 +5,7 @@ namespace Credo;
 public class AppConfig
 {
     public string? BackupPath { get; }
+    public string? BackupOneDrivePath { get; }
     public string? BrowserPath { get; }
     private Process? browserProcess;
     public string ConnectionKey { get; set; } = "XPS";
@@ -21,6 +22,13 @@ public class AppConfig
         MachineName = Environment.MachineName;
         SqlInstance = MachineName == "ROG" ? "SQL16" : "SQL";
         BackupPath = ExpandPath(configuration["Paths:Backup"]);
+        var oneDriveRoot = Environment.GetEnvironmentVariable("OneDrive");
+        if (string.IsNullOrWhiteSpace(oneDriveRoot))
+            oneDriveRoot = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "OneDrive");
+        var oneDriveRelative = configuration["Paths:BackupOneDrive"];
+        BackupOneDrivePath = string.IsNullOrWhiteSpace(oneDriveRelative)
+            ? null
+            : Path.Combine(oneDriveRoot, oneDriveRelative);
         DownloadsPath = ExpandPath(configuration["Paths:Downloads"]);
         BrowserPath =  MachineName=="ROG"? ExpandPath(configuration["Paths:BrowserROG"]) : ExpandPath(configuration["Paths:BrowserXPS"]);
     }

@@ -135,18 +135,18 @@
 
   <section id="startup">
     <h2>Startup and shell</h2>
-    <p><code>Program.cs</code> builds a Blazor interactive-server app and then runs a one-off SQL statement before <code>app.Run()</code>.</p>
+    <p><code>Program.cs</code> builds a Blazor interactive-server app and calls <code>app.Run()</code> without opening the database. The first page is <code>Welcome</code> at <code>/</code>. The menu renders with that page. It does not query until the pointer enters <strong>Years</strong>.</p>
     <ol>
       <li>Register Razor components with interactive server rendering.</li>
       <li>Singleton: <code>AppConfig</code>, <code>IDbContextFactory</code> / <code>DbContextFactory</code>.</li>
       <li>Scoped to the circuit: <code>Repo</code>, <code>State</code>, <code>UpdateService</code>, <code>GraphService</code>.</li>
-      <li>Outside Development: exception handler, HSTS, and a registration that calls <code>AppConfig.StartBrowser</code> with the Kestrel URL from <code>appsettings.json</code> (<code>http://localhost:5123</code>) on <code>ApplicationStarted</code>. The browser opens only after the watchlist SQL and after Kestrel is listening. Opening it earlier leaves Chrome on "This site can't be reached" until startup finishes. Development does not open that browser. <code>launchSettings.json</code> launches <code>http://localhost:5183</code> itself.</li>
+      <li>Outside Development: exception handler, HSTS, and a registration that calls <code>AppConfig.StartBrowser</code> with the Kestrel URL from <code>appsettings.json</code> (<code>http://localhost:5123</code>) on <code>ApplicationStarted</code>. The browser opens after Kestrel is listening. Opening it earlier leaves Chrome on "This site can't be reached" until startup finishes. Development does not open that browser. <code>launchSettings.json</code> launches <code>http://localhost:5183</code> itself.</li>
       <li>Pipeline: status-code re-execute to <code>/not-found</code>, HTTPS redirection, antiforgery, static files, static assets.</li>
       <li><code>MapGet("/help.html")</code> and <code>MapGet("/developer.html")</code> read the matching file from the content root <code>StaticPages</code> folder and return <code>text/html; charset=utf-8</code>. They are not files under <code>wwwroot</code>. <code>Credo.csproj</code> also copies <code>StaticPages\**\*</code> to the build output.</li>
       <li><code>MapRazorComponents&lt;App&gt;().AddInteractiveServerRenderMode()</code>.</li>
       <li>On application stopping, <code>AppConfig.StopBrowser</code> closes the process started in step 4.</li>
-      <li>Open one scope, create a <code>CredoDbContext</code>, and run raw SQL that creates <code>WatchlistItems</code> when <code>sysobjects</code> has no such user table. There is no EF migration for any table.</li>
     </ol>
+    <p>There is no EF migration. The first watchlist read in the process runs raw SQL that creates <code>WatchlistItems</code> when <code>sysobjects</code> has no such user table. That read is not part of startup. <code>Welcome</code> and the rest of the menu do not open a connection. <code>Menu.EnsureYearsAsync</code> calls <code>Repo.GetTransactionYearsAsync</code> the first time the pointer enters <strong>Years</strong>.</p>
     <p>The document shell is <code>Components/App.razor</code>. It loads Bootstrap, <code>app.css</code>, scoped CSS, Blazor, <code>Script/Javascript.js</code> (the file on disk is <code>wwwroot/Script/JavaScript.js</code>; Windows matches it), and Chart.js 4 from a CDN. <code>Routes</code> and <code>HeadOutlet</code> use interactive server mode.</p>
     <p><code>Components/Layout/MainLayout.razor</code> renders <code>Menu</code>, then the page body, then <code>DialogBox</code>. Every page therefore shares the menu and the dialog. <code>Menu.razor</code> sets <code>@rendermode InteractiveServer</code> on itself as well.</p>
     <pre>browser click
@@ -159,7 +159,8 @@
     <table>
       <thead><tr><th>Route</th><th>Page</th></tr></thead>
       <tbody>
-        <tr><td><code>/</code> and <code>/portfolio</code></td><td><code>PortfolioView</code></td></tr>
+        <tr><td><code>/</code></td><td><code>Welcome</code>. No database access.</td></tr>
+        <tr><td><code>/portfolio</code></td><td><code>PortfolioView</code></td></tr>
         <tr><td><code>/securities</code></td><td><code>SecuritiesView</code></td></tr>
         <tr><td><code>/transactions</code> and <code>/transactions/{Data}</code></td><td><code>TransactionsView</code>. <code>Data</code> is matched to <code>TranCode</code> and the title becomes <code>FEES</code>. <strong>View → Transactions</strong> links to <code>/transactions</code>. <strong>Years</strong> does not navigate. It sets <code>State.Year</code>, which Transactions and Expenses both read.</td></tr>
         <tr><td><code>/tickers</code></td><td><code>TickerView</code></td></tr>
@@ -184,7 +185,7 @@
       <li><code>BrowserPath</code> is <code>Paths:BrowserROG</code> or <code>Paths:BrowserXPS</code>.</li>
     </ul>
     <p><code>DbContextFactory.CreateDbContext</code> picks the first non-empty connection string among <code>ConnectionKey</code> (<code>XPS</code>), the machine name, and <code>Local</code>. It replaces <code>[ServerName]</code> with <code>{MachineName}\{SqlInstance}</code> and <code>[DatabaseName]</code> with <code>DbName</code>. Development turns on sensitive data logging. A missing string throws and names the user-secrets command.</p>
-    <p><code>CredoDbContext</code> has one <code>DbSet</code> per entity and no <code>OnModelCreating</code>. Relationships are convention from the foreign-key properties: <code>Transaction.SecurityID</code>, <code>Security.TickerID</code>, <code>Security.CurrencyID</code>, <code>Portfolio.SecurityID</code>, <code>Portfolio.CurrencyID</code>. The watchlist set is named <code>WatchlistItems</code>, which is also the table the startup SQL creates.</p>
+    <p><code>CredoDbContext</code> has one <code>DbSet</code> per entity and no <code>OnModelCreating</code>. Relationships are convention from the foreign-key properties: <code>Transaction.SecurityID</code>, <code>Security.TickerID</code>, <code>Security.CurrencyID</code>, <code>Portfolio.SecurityID</code>, <code>Portfolio.CurrencyID</code>. The watchlist set is named <code>WatchlistItems</code>, which is also the table the first watchlist query creates.</p>
   </section>
 
   <section id="data">
@@ -362,7 +363,7 @@ await scope.SaveChangesAsync();</pre>
     <h2>Other screens</h2>
 
     <h3>Transactions</h3>
-    <p>No route data: every transaction, ordered by the repo and then by the page sort. <code>State.Year</code> null keeps every trade date. A year keeps rows whose <code>TradeDate.Year</code> equals it, and the title becomes that year. The <strong>Years</strong> menu lists <strong>All</strong> plus the distinct years from <code>Repo.GetTransactionYearsAsync</code>, oldest first. <code>SetYear</code> raises <code>YearChanged</code>. This page subscribes and filters the already loaded rows. With <code>{Data}</code>: <code>TranCode == Data</code>, title <code>FEES</code>, a total of <code>LocalAmount</code> formatted as en-GB, and one synthetic “Management Cost” row per year dated 31 December, built from the year-filtered rows. <code>YearlyFees</code> is rebuilt on each apply so a later visit does not keep the previous fee rows. The context-menu markup is not bound to a right-click, and <code>ContextMenuShow</code> asks JavaScript to show an element id <code>Securities</code>, which this page does not have. <code>RowClicked</code> calls Yahoo search and discards the symbol. The table does not call it. <code>Note</code> is not rendered.</p>
+    <p>No route data: every transaction, ordered by the repo and then by the page sort. <code>State.Year</code> null keeps every trade date. A year keeps rows whose <code>TradeDate.Year</code> equals it, and the title becomes that year. The <strong>Years</strong> menu lists <strong>All</strong> at startup. The first time the pointer enters it, <code>Repo.GetTransactionYearsAsync</code> adds the distinct years, oldest first. <code>SetYear</code> raises <code>YearChanged</code>. This page subscribes and filters the already loaded rows. With <code>{Data}</code>: <code>TranCode == Data</code>, title <code>FEES</code>, a total of <code>LocalAmount</code> formatted as en-GB, and one synthetic “Management Cost” row per year dated 31 December, built from the year-filtered rows. <code>YearlyFees</code> is rebuilt on each apply so a later visit does not keep the previous fee rows. The context-menu markup is not bound to a right-click, and <code>ContextMenuShow</code> asks JavaScript to show an element id <code>Securities</code>, which this page does not have. <code>RowClicked</code> calls Yahoo search and discards the symbol. The table does not call it. <code>Note</code> is not rendered.</p>
 
     <h3>Tickers</h3>
     <p><code>GetEntitiesNTAsync&lt;Ticker&gt;</code> and an in-memory sort on symbol or name. No write.</p>

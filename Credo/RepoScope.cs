@@ -22,6 +22,7 @@ public sealed class RepoScope : IAsyncDisposable
     public void RemoveRange<T>(IList<T> range) where T : class => cx.RemoveRange(range);
     public async Task<T?> GetEntityAsync<T>(Expression<Func<T, bool>>? filter = null) where T : class
     {
+        await WatchlistSchema.EnsureIfWatchlistAsync<T>(cx);
         IQueryable<T> query = RepoQuery.BuildQuery<T>(cx.Set<T>());
         return filter is null
             ? await query.SingleOrDefaultAsync()
@@ -29,6 +30,7 @@ public sealed class RepoScope : IAsyncDisposable
     }
     public async Task<IList<T>> GetEntitiesAsync<T>(Expression<Func<T, bool>>? filter = null, Expression<Func<T, object>>? sort = null) where T : class
     {
+        await WatchlistSchema.EnsureIfWatchlistAsync<T>(cx);
         IQueryable<T> query = RepoQuery.BuildQuery<T>(cx.Set<T>());
         if (filter is not null) query = query.Where(filter);
         if (sort is not null) query = query.OrderBy(sort);

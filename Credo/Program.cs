@@ -1,7 +1,6 @@
 using Credo;
 using Credo.Components;
 using Credo.Services;
-using Microsoft.EntityFrameworkCore;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddRazorComponents()
@@ -20,7 +19,7 @@ if (!app.Environment.IsDevelopment())
     app.UseExceptionHandler("/Error", createScopeForErrors: true);
     app.UseHsts();
     string url = app.Configuration["Kestrel:Endpoints:Http:Url"] ?? string.Empty;
-    // Kestrel is not listening until app.Run(). Opening Chrome earlier shows "This site can't be reached" for the whole startup, including the watchlist SQL below.
+    // Kestrel is not listening until app.Run(). Opening Chrome earlier shows "This site can't be reached".
     app.Lifetime.ApplicationStarted.Register(() => appConfig.StartBrowser(url));
 }
 app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);
@@ -43,19 +42,5 @@ app.MapGet("/developer.html", async (IWebHostEnvironment env) =>
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 app.Lifetime.ApplicationStopping.Register(() => appConfig.StopBrowser());
-
-// Create Watchlist table if it does not already exist (no migrations in this project).
-using (var startupScope = app.Services.CreateScope())
-{
-    var factory = startupScope.ServiceProvider.GetRequiredService<IDbContextFactory>();
-    await using var ctx = factory.CreateDbContext();
-    await ctx.Database.ExecuteSqlRawAsync(@"
-        IF NOT EXISTS (SELECT 1 FROM sysobjects WHERE name='WatchlistItems' AND xtype='U')
-        CREATE TABLE WatchlistItems (
-            Id   INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
-            Symbol NVARCHAR(50)  NULL,
-            Name   NVARCHAR(300) NULL
-        )");
-}
 
 app.Run();

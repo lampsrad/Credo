@@ -15,10 +15,22 @@ public partial class Menu
     [Inject] State state { get; set; } = default!;
     IList<string> Headers { get; set; } = new List<string>();
     private IList<int> Years { get; set; } = new List<int>();
+    private Task? yearsLoad;
 
-    protected override async Task OnInitializedAsync()
+    /// <summary>Years are loaded the first time the menu is opened, not at startup.</summary>
+    private Task EnsureYearsAsync() => yearsLoad ??= LoadYearsAsync();
+
+    private async Task LoadYearsAsync()
     {
-        Years = await repo.GetTransactionYearsAsync();
+        try
+        {
+            Years = await repo.GetTransactionYearsAsync();
+        }
+        catch
+        {
+            yearsLoad = null;
+            throw;
+        }
     }
 
     private void SelectYear(int? year) => state.SetYear(year);

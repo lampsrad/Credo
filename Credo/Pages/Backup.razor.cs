@@ -19,9 +19,12 @@ public partial class Backup
 
     protected override async Task OnInitializedAsync()
     {
+        string? folder = Data == "Restore" ? cfg.BackupOneDrivePath : cfg.BackupPath;
         await Task.Run(() =>
         {
-            var files = Directory.GetFiles($"{cfg.BackupPath}", "*.bak");
+            if (string.IsNullOrEmpty(folder) || !Directory.Exists(folder))
+                return;
+            var files = Directory.GetFiles(folder, "*.bak");
             foreach (string file in files)
             {
                 var m1 = Regex.Match(file, @"\w+\.\w+$");

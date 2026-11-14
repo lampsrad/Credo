@@ -3,9 +3,9 @@
 
 <hr id="menu" style="height:4px;background-color: #bf9f00; margin: 0px;" />
 <div class="menubar">
-    <a class=men href="/">Credo</a>
+    <a class=men href="/portfolio">Credo</a>
 
-    <ul>
+    <ul @onmouseenter="EnsureYearsAsync">
         <li>
             <a class=men href="#">@(state.Year is int selected ? $"Years {selected}" : "Years")</a>
             <ul class=sub>
