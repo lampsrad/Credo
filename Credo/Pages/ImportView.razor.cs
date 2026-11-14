@@ -1,7 +1,6 @@
 ﻿using Credo.Classes;
 using Credo.Models;
 using CsvHelper;
-using CsvHelper.Configuration;
 using Microsoft.AspNetCore.Components;
 using System.Globalization;
 using System.Text.RegularExpressions;
@@ -23,19 +22,13 @@ public partial class ImportView
     private bool b1, b2, b3, b4, b5, b6;
     private Models.Results results = new();
 
-    private CsvConfiguration CsvConfig()
+    private static CsvReaderOptions CsvConfig() => new()
     {
-        var config = new CsvConfiguration(CultureInfo.InvariantCulture)
-        {
-            HasHeaderRecord = true,
-            Delimiter = ",",
-            TrimOptions = TrimOptions.Trim,
-            IgnoreBlankLines = true,
-            BadDataFound = null,
-            MissingFieldFound = null,
-        };
-        return config;
-    }
+        HasHeader = true,
+        Separator = ',',
+        TrimWhitespace = true,
+        SkipEmptyLines = true,
+    };
     private string DateRegex(string date)
     {
         string pattern = @"\b(\d{1,2})/(\d{1,2})/(\d{2,4})\b";
@@ -75,8 +68,7 @@ public partial class ImportView
             return;
         }
         using var reader = new StreamReader(exfile);
-        using var csv = new CsvReader(reader, CsvConfig());
-        csv.Context.RegisterClassMap<CurrencyMap>();
+        using var csv = CsvReader.Create(reader, CsvConfig(), leaveOpen: true);
         await using var scope = repo.BeginScope();
         await foreach (var rec in csv.GetRecordsAsync<Currency>())
         {
@@ -559,8 +551,7 @@ public partial class ImportView
             return;
         }
         using var reader = new StreamReader(exfile);
-        using var csv = new CsvReader(reader, CsvConfig());
-        csv.Context.RegisterClassMap<TickerMap>();
+        using var csv = CsvReader.Create(reader, CsvConfig(), leaveOpen: true);
         var ticks = await csv.GetRecordsAsync<Ticker>().ToListAsync();
 
         await using var scope = repo.BeginScope();

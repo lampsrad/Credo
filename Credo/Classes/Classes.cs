@@ -1,7 +1,5 @@
-﻿using Credo.Models;
+using Credo.Models;
 using CsvHelper;
-using CsvHelper.Configuration;
-using CsvHelper.TypeConversion;
 using System.Globalization;
 
 namespace Credo.Classes;
@@ -9,115 +7,230 @@ namespace Credo.Classes;
 public class Classes
 {
 }
-public class DecimalNullConverter : DefaultTypeConverter
+
+public sealed class DecimalNullConverter : ICsvConverter<decimal>
 {
-    public override object? ConvertFromString(string? text, IReaderRow row, MemberMapData memberMapData)
+    public decimal Read(CsvReader reader, int index)
     {
+        var text = reader.GetString(index);
         if (string.IsNullOrWhiteSpace(text))
-            return null;
-        string cleaned = text.Replace(" ", "").Trim();
-        if (decimal.TryParse(cleaned, NumberStyles.Any, CultureInfo.InvariantCulture, out decimal result))
-            return result;
-        return null;
+            return default;
+        var cleaned = text.Replace(" ", "").Trim();
+        return decimal.TryParse(cleaned, NumberStyles.Any, CultureInfo.InvariantCulture, out var result)
+            ? result
+            : default;
     }
-}
-public class IntegerNullConverter : DefaultTypeConverter
-{
-    public override object? ConvertFromString(string? text, IReaderRow row, MemberMapData memberMapData)
-    {
-        if (string.IsNullOrWhiteSpace(text))
-            return null;
-        string cleaned = text.Replace(" ", "").Trim();
-        if (int.TryParse(cleaned, NumberStyles.Any, CultureInfo.InvariantCulture, out int result))
-            return result;
-        return null;
-    }
-}
-public class CustomDateConverter : DefaultTypeConverter
-{
-    public override object? ConvertFromString(string? text, IReaderRow row, MemberMapData memberMapData)
-    {
-        if (string.IsNullOrWhiteSpace(text)) return null;
-        string trimmed = text.Trim();
-        if (DateTime.TryParseExact(trimmed, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out DateTime dt))
-        {
-            return DateOnly.FromDateTime(dt);
-        }
-        if (DateTime.TryParse(trimmed, CultureInfo.InvariantCulture, DateTimeStyles.None, out dt))
-        {
-            return DateOnly.FromDateTime(dt);
-        }
-        return null;
-    }
+
+    public void Write(CsvWriter writer, decimal value) =>
+        writer.WriteField(value.ToString(CultureInfo.InvariantCulture));
 }
 
-public class CurrencyMap : ClassMap<Currency>
+public sealed class IntegerNullConverter : ICsvConverter<int>
 {
-    private CurrencyMap()
+    public int Read(CsvReader reader, int index)
     {
-        Map(m => m.Name).Name("currency");
-        Map(m => m.Symbol).Name("symbol");
+        var text = reader.GetString(index);
+        if (string.IsNullOrWhiteSpace(text))
+            return default;
+        var cleaned = text.Replace(" ", "").Trim();
+        return int.TryParse(cleaned, NumberStyles.Any, CultureInfo.InvariantCulture, out var result)
+            ? result
+            : default;
     }
+
+    public void Write(CsvWriter writer, int value) =>
+        writer.WriteField(value.ToString(CultureInfo.InvariantCulture));
 }
-public sealed class PortfolioMap : ClassMap<Portfolio>
+
+public sealed class CustomDateConverter : ICsvConverter<DateOnly>
 {
-    public PortfolioMap()
+    public DateOnly Read(CsvReader reader, int index)
     {
-        Map(m => m.Quantity).Name("Quantity")
-            .Convert(args =>
-            {
-                string field = args.Row.GetField("Quantity") ?? "";
-                field = field.Replace(" ", "").Replace(",", "").Trim();
-                if (string.IsNullOrWhiteSpace(field))
-                    return 0;
-                if (decimal.TryParse(field, NumberStyles.Any, CultureInfo.InvariantCulture, out decimal decimalValue))
-                    return (int)Math.Round(decimalValue);
-                return 0;
-            });
-        Map(m => m.Security_Description).Name("Security Description", "SecurityDescription");
-        Map(m => m.Unit_Cost).Name("Unit Cost", "UnitCost").TypeConverter<DecimalNullConverter>();
-        Map(m => m.Price).Name("Price").TypeConverter<DecimalNullConverter>();
-        Map(m => m.Cost).Name("Cost").TypeConverter<DecimalNullConverter>();
-        Map(m => m.Market_Value).Name("Market Value", "MarketValue").TypeConverter<DecimalNullConverter>();
-        Map(m => m.Pct)
-             .Convert(args =>
-             {
-                 string field = args.Row.GetField("Pct") ?? "";
-                 field = field.Replace("%", "").Replace(" ", "").Trim();
-                 if (string.IsNullOrWhiteSpace(field))
-                     return 0m;
-                 return decimal.TryParse(field, NumberStyles.Any, CultureInfo.InvariantCulture, out var v) ? v : 0m;
-             });
-        Map(m => m.GainPerc)
-             .Convert(args =>
-             {
-                 string field = args.Row.GetField("P&L %") ?? "";
-                 field = field.Replace("%", "").Replace(" ", "").Trim();
-                 if (string.IsNullOrWhiteSpace(field))
-                     return 0m;
-                 return decimal.TryParse(field, NumberStyles.Any, CultureInfo.InvariantCulture, out var v) ? v : 0m;
-             });
+        var text = reader.GetString(index).Trim();
+        if (string.IsNullOrWhiteSpace(text))
+            return default;
+        if (DateOnly.TryParseExact(text, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var date))
+            return date;
+        if (DateTime.TryParse(text, CultureInfo.InvariantCulture, DateTimeStyles.None, out var dt))
+            return DateOnly.FromDateTime(dt);
+        return default;
     }
+
+    public void Write(CsvWriter writer, DateOnly value) =>
+        writer.WriteField(value.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture));
 }
-public class TickerMap : ClassMap<Ticker>
+
+public sealed class PortfolioQuantityConverter : ICsvConverter<int>
 {
-    private TickerMap()
+    public int Read(CsvReader reader, int index)
     {
-        Map(m => m.Symbol).Name("ticker");
-        Map(m => m.Name).Name("securityname");
-        Map(m => m.Currency).Name("currency");
+        var field = reader.GetString(index).Replace(" ", "").Replace(",", "").Trim();
+        if (string.IsNullOrWhiteSpace(field))
+            return 0;
+        if (decimal.TryParse(field, NumberStyles.Any, CultureInfo.InvariantCulture, out var value))
+            return (int)Math.Round(value);
+        return 0;
     }
+
+    public void Write(CsvWriter writer, int value) =>
+        writer.WriteField(value.ToString(CultureInfo.InvariantCulture));
 }
-public class TransactionMap : ClassMap<Transaction>
+
+public sealed class PercentConverter : ICsvConverter<decimal>
 {
-    public TransactionMap()
+    public decimal Read(CsvReader reader, int index)
     {
-        Map(m => m.TranCode).Name("Tran Code").TypeConverter<DecimalNullConverter>();
-        Map(m => m.Description).Name("Description").TypeConverter<DecimalNullConverter>();
-        Map(m => m.Security).Name("Security").TypeConverter<DecimalNullConverter>();
-        Map(m => m.TradeDate).Name("Trade Date").TypeConverter<CustomDateConverter>();
-        Map(m => m.Quantity).Name("Quantity").TypeConverter<IntegerNullConverter>();
-        Map(m => m.Currency).Name("Local Currency").TypeConverter<DecimalNullConverter>();
-        Map(m => m.LocalAmount).Name("Local Amount").TypeConverter<DecimalNullConverter>();
+        var field = reader.GetString(index).Replace("%", "").Replace(" ", "").Trim();
+        if (string.IsNullOrWhiteSpace(field))
+            return 0m;
+        return decimal.TryParse(field, NumberStyles.Any, CultureInfo.InvariantCulture, out var value)
+            ? value
+            : 0m;
     }
+
+    public void Write(CsvWriter writer, decimal value) =>
+        writer.WriteField(value.ToString(CultureInfo.InvariantCulture));
+}
+
+[CsvRecordMap(typeof(Currency))]
+public partial class CurrencyMap
+{
+    [CsvIgnore]
+    public int ID { get; set; }
+
+    [CsvColumn("symbol", Optional = true)]
+    public string? Symbol { get; set; }
+
+    [CsvColumn("currency", Optional = true)]
+    public string? Name { get; set; }
+
+    [CsvIgnore]
+    public decimal Rate { get; set; }
+}
+
+[CsvRecordMap(typeof(Portfolio))]
+public sealed partial class PortfolioMap
+{
+    [CsvIgnore]
+    public int Id { get; set; }
+
+    [CsvColumn("Quantity", Optional = true)]
+    [CsvConverter(typeof(PortfolioQuantityConverter))]
+    [CsvDefault(0)]
+    public int? Quantity { get; set; }
+
+    [CsvIgnore]
+    public int? CurrencyID { get; set; }
+
+    [CsvIgnore]
+    public Currency? currency { get; set; }
+
+    [CsvIgnore]
+    public int? SecurityID { get; set; }
+
+    [CsvIgnore]
+    public Security? security { get; set; }
+
+    [CsvColumn("Security Description", "SecurityDescription", Optional = true)]
+    public string? Security_Description { get; set; }
+
+    [CsvColumn("Unit Cost", "UnitCost", Optional = true)]
+    [CsvConverter(typeof(DecimalNullConverter))]
+    public decimal? Unit_Cost { get; set; }
+
+    [CsvColumn("Price", Optional = true)]
+    [CsvConverter(typeof(DecimalNullConverter))]
+    public decimal? Price { get; set; }
+
+    [CsvColumn("Cost", Optional = true)]
+    [CsvConverter(typeof(DecimalNullConverter))]
+    public decimal? Cost { get; set; }
+
+    [CsvIgnore]
+    public decimal? Change { get; set; }
+
+    [CsvColumn("Market Value", "MarketValue", Optional = true)]
+    [CsvConverter(typeof(DecimalNullConverter))]
+    public decimal? Market_Value { get; set; }
+
+    [CsvIgnore]
+    public decimal? Gain { get; set; }
+
+    [CsvColumn("P&L %", Optional = true)]
+    [CsvConverter(typeof(PercentConverter))]
+    [CsvDefault(0)]
+    public decimal? GainPerc { get; set; }
+
+    [CsvColumn("Pct", Optional = true)]
+    [CsvConverter(typeof(PercentConverter))]
+    [CsvDefault(0)]
+    public decimal? Pct { get; set; }
+
+    [CsvIgnore]
+    public decimal? IRR { get; set; }
+
+    [CsvIgnore]
+    public bool Persist { get; set; }
+
+    [CsvIgnore]
+    public bool Sold { get; set; }
+
+    [CsvIgnore]
+    public decimal Dividend { get; set; }
+
+    [CsvIgnore]
+    public bool Updated { get; set; }
+}
+
+[CsvRecordMap(typeof(Ticker))]
+public partial class TickerMap
+{
+    [CsvIgnore]
+    public int ID { get; set; }
+
+    [CsvColumn("ticker", Optional = true)]
+    public string? Symbol { get; set; }
+
+    [CsvColumn("securityname", Optional = true)]
+    public string? Name { get; set; }
+
+    [CsvColumn("currency", Optional = true)]
+    public string? Currency { get; set; }
+}
+
+[CsvRecordMap(typeof(Transaction))]
+public partial class TransactionMap
+{
+    [CsvIgnore]
+    public int ID { get; set; }
+
+    [CsvColumn("Tran Code", Optional = true)]
+    public string? TranCode { get; set; }
+
+    [CsvColumn("Description", Optional = true)]
+    public string? Description { get; set; }
+
+    [CsvIgnore]
+    public int? SecurityID { get; set; }
+
+    [CsvIgnore]
+    public Security? security { get; set; }
+
+    [CsvColumn("Trade Date", Optional = true)]
+    [CsvConverter(typeof(CustomDateConverter))]
+    public DateOnly TradeDate { get; set; }
+
+    [CsvColumn("Quantity", Optional = true)]
+    [CsvConverter(typeof(IntegerNullConverter))]
+    public int? Quantity { get; set; }
+
+    [CsvColumn("Local Currency", Optional = true)]
+    public string? Currency { get; set; }
+
+    [CsvColumn("Local Amount", Optional = true)]
+    [CsvConverter(typeof(DecimalNullConverter))]
+    public decimal? LocalAmount { get; set; }
+
+    [CsvIgnore]
+    public string? Note { get; set; }
 }
